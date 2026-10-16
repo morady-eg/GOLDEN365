@@ -261,17 +261,17 @@ private fun DashboardScreen(
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                color = Color(0xFF17130C),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF171717),
                 border = BorderStroke(1.dp, Color(0xFF6B5428))
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text("GOLDEN SHINE MARBLE", color = Color(0xFFC8A65B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                            Text("مرحباً بعودتك", color = Muted, fontSize = 13.sp)
+                            Text("إدارة الموظفين والرواتب", color = Muted, fontSize = 13.sp)
                             Text("GOLDEN 360", color = SoftGold, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
-                            Text("إدارة الرواتب بلمسة من الفخامة", color = Color(0xFFE0D3B4), fontSize = 12.sp)
+                            Text("كل معاملات فريقك في مكان واحد", color = Color(0xFFE0D3B4), fontSize = 12.sp)
                         }
                         Box(
                             Modifier.size(72.dp).background(Color(0xFF302516), RoundedCornerShape(22.dp)),
@@ -496,6 +496,7 @@ private fun EmployeeFormScreen(
     var hireDate by remember(employee?.id) { mutableStateOf(employee?.hireDate.orEmpty()) }
     var nationalId by remember(employee?.id) { mutableStateOf(employee?.nationalId.orEmpty()) }
     var address by remember(employee?.id) { mutableStateOf(employee?.address.orEmpty()) }
+    var phone by remember(employee?.id) { mutableStateOf(employee?.phone.orEmpty()) }
     var shiftRate by remember(employee?.id) { mutableStateOf(employee?.extraShiftRatePiasters?.let { formatMoney(it) }.orEmpty()) }
     var baseSalary by remember(employee?.id) { mutableStateOf(employee?.baseSalaryPiasters?.let { formatMoney(it) }.orEmpty()) }
     var profilePhoto by remember(employee?.id) { mutableStateOf(employee?.profilePhotoUri) }
@@ -537,6 +538,7 @@ private fun EmployeeFormScreen(
             HorizontalDivider(color = Color(0xFF4A3D24))
             SectionTitle("البيانات الأساسية")
             GoldenField("اسم الموظف *", name, { name = it; errors = errors - "fullName" }, errors["fullName"], "الاسم بالكامل")
+            GoldenField("رقم هاتف واتساب", phone, { phone = it }, null, "مثال: 2010XXXXXXXX", KeyboardType.Phone, "اكتب كود الدولة؛ مصر 20")
             OutlinedFieldBlock("كود الموظف", employee?.code ?: "يُنشأ تلقائيًا عند الحفظ", "مثال: GS_000001")
             ExposedDropdownMenuBox(expanded = jobExpanded, onExpandedChange = { jobExpanded = !jobExpanded }) {
                 OutlinedTextField(
@@ -566,7 +568,7 @@ private fun EmployeeFormScreen(
             Button(
                 enabled = !saving,
                 onClick = {
-                    val draft = EmployeeDraft(name, job, hireDate, nationalId, address, profilePhoto, idFront, idBack, shiftRate, baseSalary)
+                    val draft = EmployeeDraft(fullName = name, phone = phone, jobTitle = job, hireDate = hireDate, nationalId = nationalId, address = address, profilePhotoUri = profilePhoto, nationalIdFrontUri = idFront, nationalIdBackUri = idBack, extraShiftRate = shiftRate, baseSalary = baseSalary)
                     val result = EmployeeValidator.validate(draft)
                     errors = result.errors
                     if (result.isValid) {
