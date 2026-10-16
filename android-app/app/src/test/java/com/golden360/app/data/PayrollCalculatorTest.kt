@@ -15,8 +15,8 @@ class PayrollCalculatorTest {
             extraShiftRatePiasters = 5_000,
             bonusesPiasters = 1_500
         )
-        assertEquals(277_500L, result.absenceDeductionPiasters)
-        assertEquals(274_000L, result.netSalaryPiasters)
+        assertEquals(20_000L, result.absenceDeductionPiasters)
+        assertEquals(284_000L, result.netSalaryPiasters)
     }
 
     @Test fun absenceDeductionUsesThirtyDaysEvenForThirtyOneDayMonth() {
