@@ -1,22 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- All foreground artwork stays within the adaptive-icon safe zone. -->
-    <path android:fillColor="#00000000" android:strokeColor="#E8C66E" android:strokeWidth="1.5"
-        android:pathData="M23,17 C10,17 7,28 12,37 C16,43 23,43 28,47 C35,53 32,64 23,64 C17,64 13,61 11,57" />
-    <path android:fillColor="#00000000" android:strokeColor="#E8C66E" android:strokeWidth="1.5"
-        android:pathData="M51,17 L35,40 C31,47 32,58 39,63 C47,69 57,63 57,54 C57,45 49,41 42,45" />
-    <path android:fillColor="#00000000" android:strokeColor="#E8C66E" android:strokeWidth="1.5"
-        android:pathData="M78,40 C78,28 74,21 68,21 C62,21 58,28 58,40 C58,52 62,59 68,59 C74,59 78,52 78,40 Z" />
-    <!-- People mark inside the 0 -->
-    <path android:fillColor="#E8C66E" android:pathData="M87,35 a3,3 0 1,0 0.1,0 M82,44 C82,40 85,38 88,38 C91,38 94,41 94,44 L94,51 L82,51 Z" />
-    <path android:fillColor="#E8C66E" android:pathData="M80,39 a2.4,2.4 0 1,0 0.1,0 M75,46 C75,43 77,42 80,42 L82,42 L82,51 L75,51 Z" />
-    <path android:fillColor="#E8C66E" android:pathData="M96,39 a2.4,2.4 0 1,0 0.1,0 M94,42 L96,42 C99,42 101,44 101,47 L101,51 L94,51 Z" />
-    <path android:fillColor="#00000000" android:strokeColor="#D6B15C" android:strokeWidth="1.8" android:strokeLineCap="round"
-        android:pathData="M12,70 C28,86 72,86 96,58" />
-    <path android:fillColor="#D6B15C" android:pathData="M90,59 L98,55 L97,65 Z" />
-    <path android:fillColor="#E8C66E" android:pathData="M28,79 L80,79 L80,82 L28,82 Z" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="16dp"
+        android:top="16dp"
+        android:right="16dp"
+        android:bottom="16dp">
+        <bitmap
+            android:src="@drawable/golden360"
+            android:gravity="fill" />
+    </item>
+</layer-list>
