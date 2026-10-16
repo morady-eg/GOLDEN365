@@ -22,6 +22,7 @@ data class EmployeeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val code: String,
     val fullName: String,
+    @ColumnInfo(defaultValue = "") val phone: String = "",
     val jobTitle: String,
     val hireDate: String?,
     val nationalId: String?,
@@ -75,6 +76,7 @@ interface EmployeeDao {
             EmployeeEntity(
                 code = EmployeeCodeFormatter.format(next),
                 fullName = draft.fullName.trim(),
+                phone = draft.phone.trim(),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
@@ -113,7 +115,7 @@ interface EmployeeDao {
     }
 }
 
-@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 2, exportSchema = false)
+@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 3, exportSchema = false)
 abstract class EmployeeDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao
 
@@ -124,13 +126,19 @@ abstract class EmployeeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE employees ADD COLUMN phone TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var INSTANCE: EmployeeDatabase? = null
         fun get(context: Context): EmployeeDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 EmployeeDatabase::class.java,
                 "golden360.db"
-            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
         }
     }
 }
