@@ -46,11 +46,11 @@ import com.golden360.app.data.PayrollDatabase
 import com.golden360.app.data.JobTitle
 import kotlinx.coroutines.launch
 
-private val Black = Color(0xFF101010)
-private val Panel = Color(0xFF1B1B1B)
-private val Gold = Color(0xFFD6B15C)
-private val SoftGold = Color(0xFFF1D88F)
-private val Muted = Color(0xFFB7B7B7)
+internal val Black = Color(0xFF101010)
+internal val Panel = Color(0xFF1B1B1B)
+internal val Gold = Color(0xFFD6B15C)
+internal val SoftGold = Color(0xFFF1D88F)
+internal val Muted = Color(0xFFB7B7B7)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
