@@ -251,94 +251,164 @@ private fun DashboardScreen(
 ) {
     val today = java.time.LocalDate.now()
     val monthLabel = java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale("ar")).format(today)
-    Column(modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Spacer(Modifier.height(8.dp))
+    Column(
+        modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Column(
+            Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
-                color = Color(0xFF211B10),
-                border = BorderStroke(1.dp, Color(0xFF594522))
+                shape = RoundedCornerShape(28.dp),
+                color = Color(0xFF17130C),
+                border = BorderStroke(1.dp, Color(0xFF6B5428))
             ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("أهلاً بك في", color = Muted, fontSize = 13.sp)
-                            Text("GOLDEN 360", color = SoftGold, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                            Text("كل فريقك ورواتبك في مكان واحد", color = Color(0xFFE3D8BF), fontSize = 12.sp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("GOLDEN SHINE MARBLE", color = Color(0xFFC8A65B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text("مرحباً بعودتك", color = Muted, fontSize = 13.sp)
+                            Text("GOLDEN 360", color = SoftGold, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
+                            Text("إدارة الرواتب بلمسة من الفخامة", color = Color(0xFFE0D3B4), fontSize = 12.sp)
                         }
-                        Box(Modifier.size(62.dp).background(Color(0xFF342819), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = SoftGold, modifier = Modifier.size(32.dp))
+                        Box(
+                            Modifier.size(72.dp).background(Color(0xFF302516), RoundedCornerShape(22.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = SoftGold, modifier = Modifier.size(36.dp))
                         }
                     }
-                    HorizontalDivider(color = Color(0xFF594522))
+                    HorizontalDivider(color = Color(0xFF514020))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("الفترة الحالية", color = Muted, fontSize = 11.sp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("الفترة المالية الحالية", color = Muted, fontSize = 11.sp)
                             Text(monthLabel, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
-                        Surface(color = Color(0xFF3A2F19), shape = RoundedCornerShape(50)) {
-                            Text("إدارة شهرية", color = SoftGold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                        Surface(color = Color(0xFF3B2E16), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF72592A))) {
+                            Row(
+                                Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(Modifier.size(6.dp).background(Color(0xFF8FC69A), CircleShape))
+                                Text("نظام محلي", color = SoftGold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
             }
-            Text("نظرة عامة", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("الموظفون", if (loading) "—" else employees.size.toString(), "فريق العمل", Icons.Default.People, Modifier.weight(1f))
-                MetricCard("حالة النظام", "جاهز", "متابعة البيانات", Icons.Default.ReceiptLong, Modifier.weight(1f))
-            }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("الوصول السريع", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("الخدمات الأساسية", color = Muted, fontSize = 11.sp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("لوحة التحكم", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("ملخص سريع لفريق العمل", color = Muted, fontSize = 12.sp)
+                }
+                Surface(color = Color(0xFF242017), shape = RoundedCornerShape(10.dp)) {
+                    Text("نظرة عامة", color = SoftGold, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickActionCard("تسجيل سلفة", "تسجيل سلفة وخصمها من مرتب الشهر", Icons.Default.Payments) { onOpen(com.golden360.app.data.TransactionType.ADVANCE) }
-                QuickActionCard("تسجيل جزاء", "إضافة جزاء مالي للموظف", Icons.Default.Gavel) { onOpen(com.golden360.app.data.TransactionType.PENALTY) }
-                QuickActionCard("إضافة مكافأة", "إضافة مكافأة إلى مستحقات الموظف", Icons.Default.Redeem) { onOpen(com.golden360.app.data.TransactionType.BONUS) }
-                QuickActionCard("وردية إضافية", "حساب تلقائي حسب سعر الموظف", Icons.Default.AccessTime) { onOpen(com.golden360.app.data.TransactionType.OVERTIME) }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricCard("إجمالي الموظفين", if (loading) "—" else employees.size.toString(), "ملفات الموظفين النشطة", Icons.Default.People, Modifier.weight(1f))
+                MetricCard("إدارة الشهر", monthLabel, "فترة الرواتب الحالية", Icons.Default.ReceiptLong, Modifier.weight(1f))
             }
-            Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Color(0xFF34302A))) {
-                Row(Modifier.fillMaxWidth().clickable(onClick = onEmployees).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(44.dp).background(Color(0xFF302719), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.People, contentDescription = null, tint = SoftGold)
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("الخدمات المالية", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("اختر إجراءً", color = Muted, fontSize = 11.sp)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LuxuryActionCard("السلف", "إضافة سلفة", Icons.Default.Payments, Modifier.weight(1f)) {
+                    onOpen(com.golden360.app.data.TransactionType.ADVANCE)
+                }
+                LuxuryActionCard("الجزاءات", "تسجيل جزاء", Icons.Default.Gavel, Modifier.weight(1f)) {
+                    onOpen(com.golden360.app.data.TransactionType.PENALTY)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LuxuryActionCard("المكافآت", "إضافة مكافأة", Icons.Default.Redeem, Modifier.weight(1f)) {
+                    onOpen(com.golden360.app.data.TransactionType.BONUS)
+                }
+                LuxuryActionCard("الورديات", "وردية إضافية", Icons.Default.AccessTime, Modifier.weight(1f)) {
+                    onOpen(com.golden360.app.data.TransactionType.OVERTIME)
+                }
+            }
+
+            Surface(
+                color = Color(0xFF1A1711),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color(0xFF514020)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    Modifier.clickable(onClick = onEmployees).padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(Modifier.size(48.dp).background(Color(0xFF342919), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.People, contentDescription = null, tint = SoftGold, modifier = Modifier.size(25.dp))
                     }
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("إدارة الموظفين", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("إضافة وتعديل ملفات الموظفين", color = Muted, fontSize = 12.sp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("ملفات الموظفين", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("عرض الموظفين وإضافة ملفات أو تعديلها", color = Muted, fontSize = 11.sp)
                     }
                     Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
 private fun MetricCard(title: String, value: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
-    Surface(modifier, color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Color(0xFF39332A))) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(23.dp))
-            Text(title, color = Muted, fontSize = 12.sp)
-            Text(value, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-            Text(subtitle, color = Muted, fontSize = 10.sp)
+    Surface(
+        modifier = modifier,
+        color = Color(0xFF1A1916),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0xFF40351F))
+    ) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Box(Modifier.size(38.dp).background(Color(0xFF342919), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = SoftGold, modifier = Modifier.size(21.dp))
+            }
+            Text(title, color = Muted, fontSize = 11.sp)
+            Text(value, color = SoftGold, fontSize = if (value.length > 12) 12.sp else 23.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Text(subtitle, color = Muted, fontSize = 10.sp, maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun QuickActionCard(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(color = Panel, shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, Color(0xFF3D3424)), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.clickable(onClick = onClick).padding(horizontal = 15.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-            Box(Modifier.size(44.dp).background(Color(0xFF302719), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = SoftGold, modifier = Modifier.size(23.dp))
+private fun LuxuryActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        color = Color(0xFF1B1914),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0xFF514020))
+    ) {
+        Column(
+            Modifier.padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).background(Color(0xFF382B17), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = SoftGold, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Color(0xFF8F753B), modifier = Modifier.size(18.dp))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(subtitle, color = Muted, fontSize = 11.sp)
-            }
-            Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = Muted, fontSize = 11.sp, maxLines = 1)
         }
     }
 }
