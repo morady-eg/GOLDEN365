@@ -7,6 +7,7 @@ enum class JobTitle(val arabicLabel: String) {
 
 data class EmployeeDraft(
     val fullName: String,
+    val phone: String = "",
     val jobTitle: JobTitle?,
     val hireDate: String = "",
     val nationalId: String = "",
@@ -22,6 +23,7 @@ data class Employee(
     val id: Long = 0,
     val code: String,
     val fullName: String,
+    val phone: String = "",
     val jobTitle: JobTitle,
     val hireDate: String? = null,
     val nationalId: String? = null,
