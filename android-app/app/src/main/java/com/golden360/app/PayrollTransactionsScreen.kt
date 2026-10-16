@@ -2,6 +2,8 @@ package com.golden360.app
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,11 +34,12 @@ internal fun PayrollTransactionsScreen(
     employees: List<EmployeeEntity>,
     dao: PayrollTransactionDao,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialType: TransactionType = TransactionType.ADVANCE
 ) {
     var selectedEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var employeeExpanded by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf(TransactionType.ADVANCE) }
+    var selectedType by remember(initialType) { mutableStateOf(initialType) }
     var typeExpanded by remember { mutableStateOf(false) }
     var month by remember { mutableStateOf(YearMonth.now().toString()) }
     var amount by remember { mutableStateOf("") }
@@ -101,6 +104,25 @@ internal fun PayrollTransactionsScreen(
             TextButton(onClick = onBack) { Text("رجوع", color = SoftGold) }
         }
         HorizontalDivider(color = Color(0xFF4A3D24))
+        Text("اختر نوع الحركة", color = SoftGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TransactionType.entries.forEach { type ->
+                FilterChip(
+                    selected = selectedType == type,
+                    onClick = { selectedType = type; savedReference = null; error = null },
+                    label = { Text(type.arabicLabel, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Gold,
+                        selectedLabelColor = Black,
+                        containerColor = Panel,
+                        labelColor = Muted
+                    )
+                )
+            }
+        }
         if (employees.isEmpty()) {
             Text("أضف موظفًا أولًا حتى تتمكن من تسجيل الحركات.", color = Muted)
         } else {
