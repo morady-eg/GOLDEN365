@@ -1,5 +1,8 @@
 package com.golden360.app
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
@@ -52,6 +55,8 @@ internal fun PayrollTransactionsScreen(
     var saving by remember { mutableStateOf(false) }
     var savedReference by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var whatsappMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(employees) {
         if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
@@ -180,6 +185,18 @@ internal fun PayrollTransactionsScreen(
                     Text("تم الحفظ — الرقم المرجعي: $savedReference", color = SoftGold, modifier = Modifier.padding(12.dp), fontWeight = FontWeight.Bold)
                 }
             }
+            if (whatsappMessage != null) {
+                OutlinedButton(
+                    onClick = {
+                        val phone = selectedEmployee?.phone.orEmpty().filter { it.isDigit() }
+                        if (phone.isNotBlank()) {
+                            val uri = Uri.parse("https://wa.me/$phone?text=" + Uri.encode(whatsappMessage))
+                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        } else error = "أضف رقم هاتف الموظف في ملفه أولاً"
+                    }, modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftGold)
+                ) { Text("إرسال التفاصيل عبر واتساب") }
+            }
             Button(
                 enabled = !saving,
                 onClick = {
@@ -200,6 +217,9 @@ internal fun PayrollTransactionsScreen(
                                 dao.create(employee.id, selectedType, month, enteredAmount, count, note)
                             }.onSuccess { reference ->
                                 savedReference = reference
+                                val typeLabel = selectedType.arabicLabel
+                                val dateLabel = java.time.LocalDate.now().toString()
+                                whatsappMessage = "السلام عليكم ${employee.fullName}،\nتم تسجيل ${typeLabel} على حسابك.\nكود الموظف: ${employee.code}\nالشهر: ${month}\nالقيمة: ${formatMoney(enteredAmount)} ج.م\nالعدد: ${count}\nالتفاصيل: ${note.ifBlank { "لا توجد ملاحظات" }}\nالتاريخ: ${dateLabel}\nالرقم المرجعي: ${reference}\n\nإدارة الموارد البشرية - GOLDEN 360"
                                 amount = ""
                                 note = ""
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
