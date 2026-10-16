@@ -1,36 +1,27 @@
-# 🏢 Stark Software - Payroll & HR Management App
+# GOLDEN 360 — Native Android Payroll & HR
 
-A dedicated mobile application designed to streamline salary processing, financial management, and Human Resources workflows.
+GOLDEN 360 is being developed as a **native Android application written in Kotlin**. It is not an HTML/JavaScript app wrapped with Capacitor.
 
----
+## Native Android stack
+- Kotlin
+- Jetpack Compose for native Android UI
+- Material 3 components
+- Room for on-device SQLite persistence
+- Gradle Kotlin DSL
+- JUnit for unit tests
 
-## 🌟 Key Features
+## Current starter scope
+The `android-app/` directory contains an initial Android Studio project scaffold:
+- Arabic employee form with black-and-gold styling
+- Employee data model and validation
+- Room entity/DAO/database scaffold
+- Sequential employee code formatter: `GS_000001`
+- Unit tests for validation and money conversion
 
-* **Payroll & Salary Management:** Automated calculations of working hours, salary advances, deductions, and total monthly compensation.
-* **Attendance & Shift Tracking:** Seamless tracking of daily employee attendance, work shifts, and logs.
-* **Financial Notifications:** Real-time alerts and notifications regarding salary disbursements, bonuses, and deductions.
-* **Comprehensive Financial Reports:** Automated generation of monthly payslips and financial summaries for each employee.
-* **Administrative Dashboard:** Easy-to-use administrative interface for monitoring operations and workforce financials.
+## Open in Android Studio
+Open the `android-app` directory as the project. Use JDK 17 and Android SDK 35.
 
----
+## Not finished yet
+This is an early starter, not a production-ready payroll app. Employee form submission is not yet wired to persist data through Room; attachment buttons are placeholders; and employee listing/editing, advances, penalties, bonuses, overtime entries, absence deductions, payroll calculation, and reports remain to be implemented. The Android build and tests have not yet been run in this environment.
 
-## 🛠️ Tech Stack
-
-* **Frontend / Mobile Framework:** Capacitor / HTML5 & Tailwind CSS
-* **Development Tools:** GitHub & Replit
-* **Backend & Storage:** Node.js / Local Storage
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-* [Node.js](https://nodejs.org/) installed on your machine.
-* [Git](https://git-scm.com/) for repository cloning.
-
-### Installation Steps
-
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/](https://github.com/)[Your-Username]/[Repository-Name].git
-   
+Employee personal data should not be committed to GitHub. The repository is for source code only.
