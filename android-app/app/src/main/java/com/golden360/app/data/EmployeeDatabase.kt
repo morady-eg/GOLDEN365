@@ -1,0 +1,136 @@
+package com.golden360.app.data
+
+import android.content.Context
+import androidx.room.Dao
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.ColumnInfo
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.Transaction
+import androidx.room.Update
+
+@Entity(tableName = "employees", indices = [Index(value = ["code"], unique = true)])
+data class EmployeeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val code: String,
+    val fullName: String,
+    val jobTitle: String,
+    val hireDate: String?,
+    val nationalId: String?,
+    val address: String?,
+    val profilePhotoUri: String?,
+    val nationalIdFrontUri: String?,
+    val nationalIdBackUri: String?,
+    val extraShiftRatePiasters: Long,
+    @ColumnInfo(defaultValue = "0") val baseSalaryPiasters: Long = 0,
+    val createdAtEpochMillis: Long,
+    val updatedAtEpochMillis: Long,
+    val archived: Boolean = false
+)
+
+@Entity(tableName = "employee_code_counter")
+data class EmployeeCodeCounter(@PrimaryKey val key: Int = 1, val lastSequence: Long)
+
+@Dao
+interface EmployeeDao {
+    @Query("SELECT * FROM employees WHERE archived = 0 ORDER BY fullName COLLATE NOCASE")
+    suspend fun getActiveEmployees(): List<EmployeeEntity>
+
+    @Query("SELECT * FROM employees WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): EmployeeEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(employee: EmployeeEntity): Long
+
+    @Update
+    suspend fun update(employee: EmployeeEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveCounter(counter: EmployeeCodeCounter)
+
+    @Query("SELECT * FROM employee_code_counter WHERE `key` = 1 LIMIT 1")
+    suspend fun getCounter(): EmployeeCodeCounter?
+
+    @Query("SELECT MAX(CAST(SUBSTR(code, 4) AS INTEGER)) FROM employees")
+    suspend fun highestExistingSequence(): Long?
+
+    @Transaction
+    suspend fun createEmployee(draft: EmployeeDraft): Long {
+        val validation = EmployeeValidator.validate(draft)
+        require(validation.isValid) { validation.errors.values.joinToString("، ") }
+        val now = System.currentTimeMillis()
+        val counter = getCounter()?.lastSequence ?: (highestExistingSequence() ?: 0L)
+        val next = counter + 1L
+        saveCounter(EmployeeCodeCounter(lastSequence = next))
+        val rate = requireNotNull(EmployeeValidator.toPiasters(draft.extraShiftRate))
+        return insert(
+            EmployeeEntity(
+                code = EmployeeCodeFormatter.format(next),
+                fullName = draft.fullName.trim(),
+                jobTitle = requireNotNull(draft.jobTitle).name,
+                hireDate = draft.hireDate.trim().ifEmpty { null },
+                nationalId = draft.nationalId.trim().ifEmpty { null },
+                address = draft.address.trim().ifEmpty { null },
+                profilePhotoUri = draft.profilePhotoUri,
+                nationalIdFrontUri = draft.nationalIdFrontUri,
+                nationalIdBackUri = draft.nationalIdBackUri,
+                extraShiftRatePiasters = rate,
+                baseSalaryPiasters = requireNotNull(EmployeeValidator.toPiasters(draft.baseSalary)),
+                createdAtEpochMillis = now,
+                updatedAtEpochMillis = now
+            )
+        )
+    }
+
+    @Transaction
+    suspend fun updateEmployee(id: Long, draft: EmployeeDraft) {
+        val validation = EmployeeValidator.validate(draft)
+        require(validation.isValid) { validation.errors.values.joinToString("، ") }
+        val old = requireNotNull(getById(id)) { "الموظف غير موجود" }
+        update(
+            old.copy(
+                fullName = draft.fullName.trim(),
+                jobTitle = requireNotNull(draft.jobTitle).name,
+                hireDate = draft.hireDate.trim().ifEmpty { null },
+                nationalId = draft.nationalId.trim().ifEmpty { null },
+                address = draft.address.trim().ifEmpty { null },
+                profilePhotoUri = draft.profilePhotoUri,
+                nationalIdFrontUri = draft.nationalIdFrontUri,
+                nationalIdBackUri = draft.nationalIdBackUri,
+                extraShiftRatePiasters = requireNotNull(EmployeeValidator.toPiasters(draft.extraShiftRate)),
+                baseSalaryPiasters = requireNotNull(EmployeeValidator.toPiasters(draft.baseSalary)),
+                updatedAtEpochMillis = System.currentTimeMillis()
+            )
+        )
+    }
+}
+
+@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 2, exportSchema = false)
+abstract class EmployeeDatabase : RoomDatabase() {
+    abstract fun employeeDao(): EmployeeDao
+
+    companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE employees ADD COLUMN baseSalaryPiasters INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        @Volatile private var INSTANCE: EmployeeDatabase? = null
+        fun get(context: Context): EmployeeDatabase = INSTANCE ?: synchronized(this) {
+            INSTANCE ?: Room.databaseBuilder(
+                context.applicationContext,
+                EmployeeDatabase::class.java,
+                "golden360.db"
+            ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+        }
+    }
+}
