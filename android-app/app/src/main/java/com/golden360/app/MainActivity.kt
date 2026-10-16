@@ -418,9 +418,9 @@ private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golde
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("كل الخدمات", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text("اختر القسم الذي تريد العمل عليه", color = Muted, fontSize = 13.sp)
-        QuickActionCard("المكافآت", "تسجيل ومراجعة المكافآت", Icons.Default.Redeem) { onOpen(com.golden360.app.data.TransactionType.BONUS) }
-        QuickActionCard("الورديات الإضافية", "حساب السعر من ملف الموظف تلقائيًا", Icons.Default.AccessTime) { onOpen(com.golden360.app.data.TransactionType.OVERTIME) }
-        QuickActionCard("ملخص الرواتب", "عرض صافي المرتب والخصومات والإضافات", Icons.Default.ReceiptLong) { onOpen(com.golden360.app.data.TransactionType.ADVANCE) }
+        LuxuryActionCard("المكافآت", "تسجيل ومراجعة المكافآت", Icons.Default.Redeem, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.BONUS) }
+        LuxuryActionCard("الورديات الإضافية", "حساب السعر من ملف الموظف تلقائيًا", Icons.Default.AccessTime, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.OVERTIME) }
+        LuxuryActionCard("ملخص الرواتب", "عرض صافي المرتب والخصومات والإضافات", Icons.Default.ReceiptLong, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.ADVANCE) }
     }
 }
 
