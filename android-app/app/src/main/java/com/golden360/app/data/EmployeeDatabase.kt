@@ -1,6 +1,7 @@
 package com.golden360.app.data
 
 import android.content.Context
+import net.sqlcipher.database.SupportFactory
 import androidx.room.Dao
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -23,6 +24,8 @@ data class EmployeeEntity(
     val code: String,
     val fullName: String,
     @ColumnInfo(defaultValue = "") val phone: String = "",
+    @ColumnInfo(defaultValue = "'08:00'") val shiftStartTime: String = "08:00",
+    @ColumnInfo(defaultValue = "''") val weeklyOffDays: String = "",
     val jobTitle: String,
     val hireDate: String?,
     val nationalId: String?,
@@ -69,7 +72,7 @@ interface EmployeeDao {
         require(validation.isValid) { validation.errors.values.joinToString("، ") }
         val now = System.currentTimeMillis()
         val counter = getCounter()?.lastSequence ?: (highestExistingSequence() ?: 0L)
-        val next = counter + 1L
+        val next = Math.addExact(counter, 1L)
         saveCounter(EmployeeCodeCounter(lastSequence = next))
         val rate = requireNotNull(EmployeeValidator.toPiasters(draft.extraShiftRate))
         return insert(
@@ -77,6 +80,8 @@ interface EmployeeDao {
                 code = EmployeeCodeFormatter.format(next),
                 fullName = draft.fullName.trim(),
                 phone = draft.phone.trim(),
+                shiftStartTime = draft.shiftStartTime.trim(),
+                weeklyOffDays = AttendancePolicy.serializeWeeklyOffDays(draft.weeklyOffDays),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
@@ -101,6 +106,8 @@ interface EmployeeDao {
             old.copy(
                 fullName = draft.fullName.trim(),
                 phone = draft.phone.trim(),
+                shiftStartTime = draft.shiftStartTime.trim(),
+                weeklyOffDays = AttendancePolicy.serializeWeeklyOffDays(draft.weeklyOffDays),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
@@ -116,7 +123,7 @@ interface EmployeeDao {
     }
 }
 
-@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 3, exportSchema = false)
+@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 4, exportSchema = false)
 abstract class EmployeeDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao
 
@@ -133,13 +140,24 @@ abstract class EmployeeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE employees ADD COLUMN shiftStartTime TEXT NOT NULL DEFAULT '08:00'")
+                database.execSQL("ALTER TABLE employees ADD COLUMN weeklyOffDays TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var INSTANCE: EmployeeDatabase? = null
         fun get(context: Context): EmployeeDatabase = INSTANCE ?: synchronized(this) {
-            INSTANCE ?: Room.databaseBuilder(
-                context.applicationContext,
-                EmployeeDatabase::class.java,
-                "golden360.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
+            INSTANCE ?: run {
+                val passphrase = DatabaseEncryption.prepareEncryptedDatabase(context.applicationContext, "golden360.db")
+                Room.databaseBuilder(
+                    context.applicationContext,
+                    EmployeeDatabase::class.java,
+                    "golden360.db"
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .build().also { INSTANCE = it }
+            }
         }
     }
 }

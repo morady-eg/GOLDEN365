@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +52,7 @@ import com.golden360.app.data.EmployeeDatabase
 import com.golden360.app.data.EmployeeDraft
 import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.EmployeeValidator
+import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PayrollDatabase
 import com.golden360.app.data.JobTitle
 import kotlinx.coroutines.launch
@@ -85,6 +88,9 @@ private fun Golden360App(dao: EmployeeDao) {
     var editing by remember { mutableStateOf<EmployeeEntity?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var showPayroll by remember { mutableStateOf(false) }
+    var showIdCard by remember { mutableStateOf(false) }
+    var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
+    var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
     var activeTab by remember { mutableStateOf("home") }
     var loading by remember { mutableStateOf(true) }
@@ -116,7 +122,7 @@ private fun Golden360App(dao: EmployeeDao) {
         containerColor = Black,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            if (!showForm && !showPayroll) {
+            if (!showForm && !showPayroll && !showIdCard) {
                 TopAppBar(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -127,6 +133,7 @@ private fun Golden360App(dao: EmployeeDao) {
                                     "advances" -> "السلف المالية"
                                     "penalties" -> "الجزاءات"
                                     "more" -> "المزيد من الخدمات"
+                                    "attendance" -> "الحضور والغياب"
                                     else -> "إدارة الرواتب والموارد البشرية"
                                 },
                                 color = Muted, fontSize = 11.sp
@@ -150,11 +157,11 @@ private fun Golden360App(dao: EmployeeDao) {
                     title = {
                         Column {
                             Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(if (showForm) "ملف الموظف" else selectedType.arabicLabel, color = Muted, fontSize = 12.sp)
+                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { showForm = false; showPayroll = false; editing = null }) {
+                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; selectedIdEmployee = null; editing = null }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "رجوع", tint = Gold)
                         }
                     },
@@ -163,11 +170,12 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         bottomBar = {
-            if (!showForm && !showPayroll) {
+            if (!showForm && !showPayroll && !showIdCard) {
                 NavigationBar(containerColor = Color(0xFF171717), contentColor = SoftGold, tonalElevation = 0.dp) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
                         Triple("employees", "الموظفون", Icons.Default.People),
+                        Triple("attendance", "الحضور", Icons.Default.DateRange),
                         Triple("payroll", "الرواتب", Icons.Default.ReceiptLong),
                         Triple("more", "المزيد", Icons.Default.MoreHoriz)
                     )
@@ -190,7 +198,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
@@ -217,6 +225,10 @@ private fun Golden360App(dao: EmployeeDao) {
                 onBack = { showPayroll = false },
                 initialType = selectedType
             )
+            showIdCard && selectedIdEmployees.isNotEmpty() -> EmployeeIdCardScreen(
+                employees = selectedIdEmployees,
+                onBack = { showIdCard = false; selectedIdEmployee = null; selectedIdEmployees = emptyList() }
+            )
             activeTab == "employees" -> EmployeeListScreen(
                 employees = employees.filter {
                     searchQuery.isBlank() ||
@@ -226,10 +238,17 @@ private fun Golden360App(dao: EmployeeDao) {
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onEdit = { editing = it; showForm = true },
+                onPrintId = { selectedIdEmployee = it; selectedIdEmployees = listOf(it); showIdCard = true },
+                onPrintIds = { selectedIdEmployees = it; selectedIdEmployee = it.firstOrNull(); showIdCard = it.isNotEmpty() },
                 onRefresh = { scope.launch { runCatching { refresh() }.onFailure { snackbar.showSnackbar("تعذر تحديث القائمة") } } },
                 searchMode = searchMode,
                 query = searchQuery,
                 onQueryChange = { searchQuery = it }
+            )
+            activeTab == "attendance" -> AttendanceScreen(
+                employees = employees,
+                dao = PayrollDatabase.get(LocalContext.current).transactions(),
+                modifier = Modifier.padding(padding)
             )
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
@@ -479,11 +498,15 @@ private fun EmployeeListScreen(
     loading: Boolean,
     modifier: Modifier = Modifier,
     onEdit: (EmployeeEntity) -> Unit,
+    onPrintId: (EmployeeEntity) -> Unit,
+    onPrintIds: (List<EmployeeEntity>) -> Unit,
     onRefresh: () -> Unit,
     searchMode: Boolean = false,
     query: String = "",
     onQueryChange: (String) -> Unit = {}
 ) {
+    var selectedEmployeeIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val visibleEmployees = employees.filter { query.isBlank() || it.fullName.contains(query, true) || it.code.contains(query, true) }
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -500,6 +523,22 @@ private fun EmployeeListScreen(
             OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("ابحث بالاسم أو كود الموظف") }, singleLine = true,
                 shape = RoundedCornerShape(14.dp), colors = fieldColors())
+        }
+        if (visibleEmployees.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = {
+                    val visibleIds = visibleEmployees.map { it.id }.toSet()
+                    selectedEmployeeIds = if (selectedEmployeeIds.containsAll(visibleIds)) selectedEmployeeIds - visibleIds else selectedEmployeeIds + visibleIds
+                }) {
+                    Text(if (visibleEmployees.isNotEmpty() && selectedEmployeeIds.containsAll(visibleEmployees.map { it.id })) "إلغاء تحديد الظاهر" else "تحديد الكل", color = SoftGold)
+                }
+                Spacer(Modifier.weight(1f))
+                Button(enabled = selectedEmployeeIds.isNotEmpty(), onClick = { onPrintIds(employees.filter { it.id in selectedEmployeeIds }) }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Print, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("طباعة المحدد (${selectedEmployeeIds.size})")
+                }
+            }
         }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Gold) }
@@ -519,18 +558,26 @@ private fun EmployeeListScreen(
                 }
             }
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 88.dp)) {
-                items(employees.filter { query.isBlank() || it.fullName.contains(query, true) || it.code.contains(query, true) }, key = { it.id }) { employee ->
-                    Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Color(0xFF403625)), modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.clickable { onEdit(employee) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(visibleEmployees, key = { it.id }) { employee ->
+                    Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, if (employee.id in selectedEmployeeIds) Gold else Color(0xFF403625)), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Checkbox(
+                                checked = employee.id in selectedEmployeeIds,
+                                onCheckedChange = { checked -> selectedEmployeeIds = if (checked) selectedEmployeeIds + employee.id else selectedEmployeeIds - employee.id },
+                                colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
+                            )
                             Box(Modifier.size(48.dp).background(Color(0xFF302719), CircleShape), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Badge, contentDescription = null, tint = SoftGold, modifier = Modifier.size(24.dp))
                             }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(employee.fullName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text("${employee.code} • " + (JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle), color = SoftGold, fontSize = 11.sp)
                                 Text("الراتب الأساسي  ${formatMoney(employee.baseSalaryPiasters)} ج.م", color = Muted, fontSize = 12.sp)
                             }
-                            Icon(Icons.Default.Edit, contentDescription = "تعديل الموظف", tint = Gold)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(onClick = { onEdit(employee) }) { Icon(Icons.Default.Edit, contentDescription = "تعديل الموظف", tint = Gold) }
+                                IconButton(onClick = { onPrintId(employee) }) { Icon(Icons.Default.Print, contentDescription = "طباعة بطاقة الموظف", tint = Gold) }
+                            }
                         }
                     }
                 }
@@ -560,6 +607,8 @@ private fun EmployeeFormScreen(
     var phone by remember(employee?.id) { mutableStateOf(employee?.phone.orEmpty()) }
     var shiftRate by remember(employee?.id) { mutableStateOf(employee?.extraShiftRatePiasters?.let { formatMoney(it) }.orEmpty()) }
     var baseSalary by remember(employee?.id) { mutableStateOf(employee?.baseSalaryPiasters?.let { formatMoney(it) }.orEmpty()) }
+    var shiftStartTime by remember(employee?.id) { mutableStateOf(employee?.shiftStartTime ?: "08:00") }
+    var weeklyOffDays by remember(employee?.id) { mutableStateOf(AttendancePolicy.parseWeeklyOffDays(employee?.weeklyOffDays.orEmpty())) }
     var profilePhoto by remember(employee?.id) { mutableStateOf(employee?.profilePhotoUri) }
     var idFront by remember(employee?.id) { mutableStateOf(employee?.nationalIdFrontUri) }
     var idBack by remember(employee?.id) { mutableStateOf(employee?.nationalIdBackUri) }
@@ -598,7 +647,7 @@ private fun EmployeeFormScreen(
             HorizontalDivider(color = Color(0xFF4A3D24))
             SectionTitle("البيانات الأساسية")
             GoldenField("اسم الموظف *", name, { name = it; errors = errors - "fullName" }, errors["fullName"], "الاسم بالكامل")
-            GoldenField("رقم هاتف واتساب", phone, { phone = it }, null, "مثال: 2010XXXXXXXX", KeyboardType.Phone)
+            GoldenField("رقم هاتف واتساب", phone, { phone = it; errors = errors - "phone" }, errors["phone"], "مثال: 2010XXXXXXXX", KeyboardType.Phone)
             OutlinedFieldBlock("كود الموظف", employee?.code ?: "يُنشأ تلقائيًا عند الحفظ")
             ExposedDropdownMenuBox(expanded = jobExpanded, onExpandedChange = { jobExpanded = !jobExpanded }) {
                 OutlinedTextField(
@@ -614,7 +663,7 @@ private fun EmployeeFormScreen(
                     }
                 }
             }
-            GoldenField("تاريخ التعيين", hireDate, { hireDate = it }, null, "YYYY-MM-DD (اختياري)")
+            GoldenField("تاريخ التعيين", hireDate, { hireDate = it; errors = errors - "hireDate" }, errors["hireDate"], "YYYY-MM-DD (اختياري)")
             SectionTitle("بيانات إضافية — اختيارية")
             GoldenField("الرقم القومي", nationalId, { nationalId = it; errors = errors - "nationalId" }, errors["nationalId"], "14 رقمًا", KeyboardType.Number)
             GoldenField("العنوان", address, { address = it }, null, "عنوان الموظف")
@@ -622,13 +671,45 @@ private fun EmployeeFormScreen(
             AttachmentRow("الصورة الشخصية", profilePhoto != null, if (profilePhoto == null) "اختر صورة" else "تغيير") { profilePicker.launch(arrayOf("image/*")) }
             AttachmentRow("بطاقة الرقم القومي — الوجه الأمامي", idFront != null, if (idFront == null) "اختر صورة" else "تغيير") { frontPicker.launch(arrayOf("image/*")) }
             AttachmentRow("بطاقة الرقم القومي — الوجه الخلفي", idBack != null, if (idBack == null) "اختر صورة" else "تغيير") { backPicker.launch(arrayOf("image/*")) }
+            SectionTitle("مواعيد الوردية والإجازة الأسبوعية")
+            Text("يُفترض الحضور تلقائيًا في يوم العمل ما لم تسجّل غيابًا يدويًا. لا يلزم تسجيل الانصراف.", color = Muted, fontSize = 12.sp)
+            GoldenField("موعد بداية الوردية *", shiftStartTime, { shiftStartTime = it; errors = errors - "shiftStartTime" }, errors["shiftStartTime"], "مثال: 08:00")
+            Text("حدد أيام الإجازة الأسبوعية المدفوعة (لن يُخصم عنها أي مبلغ):", color = Color.White, fontSize = 13.sp)
+            val weekdays = listOf(
+                java.time.DayOfWeek.SATURDAY to "السبت",
+                java.time.DayOfWeek.SUNDAY to "الأحد",
+                java.time.DayOfWeek.MONDAY to "الإثنين",
+                java.time.DayOfWeek.TUESDAY to "الثلاثاء",
+                java.time.DayOfWeek.WEDNESDAY to "الأربعاء",
+                java.time.DayOfWeek.THURSDAY to "الخميس",
+                java.time.DayOfWeek.FRIDAY to "الجمعة"
+            )
+            weekdays.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { (day, label) ->
+                        Row(Modifier.weight(1f).clickable {
+                            weeklyOffDays = if (day in weeklyOffDays) weeklyOffDays - day else weeklyOffDays + day
+                        }, verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = day in weeklyOffDays,
+                                onCheckedChange = { checked ->
+                                    weeklyOffDays = if (checked) weeklyOffDays + day else weeklyOffDays - day
+                                },
+                                colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
+                            )
+                            Text(label, color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
             SectionTitle("بيانات الأجر")
             GoldenField("الراتب الأساسي الشهري بالجنيه *", baseSalary, { baseSalary = it; errors = errors - "baseSalary" }, errors["baseSalary"], "مثال: 8000", KeyboardType.Decimal)
             GoldenField("سعر الوردية الإضافية بالجنيه *", shiftRate, { shiftRate = it; errors = errors - "extraShiftRate" }, errors["extraShiftRate"], "مثال: 250", KeyboardType.Decimal)
             Button(
                 enabled = !saving,
                 onClick = {
-                    val draft = EmployeeDraft(fullName = name, phone = phone, jobTitle = job, hireDate = hireDate, nationalId = nationalId, address = address, profilePhotoUri = profilePhoto, nationalIdFrontUri = idFront, nationalIdBackUri = idBack, extraShiftRate = shiftRate, baseSalary = baseSalary)
+                    val draft = EmployeeDraft(fullName = name, phone = phone, jobTitle = job, hireDate = hireDate, nationalId = nationalId, address = address, profilePhotoUri = profilePhoto, nationalIdFrontUri = idFront, nationalIdBackUri = idBack, extraShiftRate = shiftRate, baseSalary = baseSalary, shiftStartTime = shiftStartTime, weeklyOffDays = weeklyOffDays)
                     val result = EmployeeValidator.validate(draft)
                     errors = result.errors
                     if (result.isValid) {

@@ -1,19 +1,29 @@
-# GOLDEN 360 — Android starter
+# Android App — GOLDEN365
 
-This folder contains an initial native Android app scaffold using Kotlin, Jetpack Compose, and Room.
+## متطلبات التطوير
+- Android Studio حديث يدعم Android Gradle Plugin 8.7.3
+- JDK 17
+- اتصال بالإنترنت لتنزيل تبعيات Gradle
 
-## Included in this starter
-- Arabic dark/black and gold employee form UI.
-- Employee model and basic validation.
-- Room database/DAO scaffold with a unique employee code index and sequential `GS_000001` codes.
-- Unit tests for validation and code formatting.
+## تشغيل الاختبارات والبناء
+من هذا المجلد:
+```bash
+gradle testDebugUnitTest
+gradle assembleDebug
+```
+ينفذ workflow في `.github/workflows/android-ci.yml` الاختبارات ويبني APK تجريبيًا.
 
-## Open the project
-Open the `android-app` directory in Android Studio. Use JDK 17 and Android SDK 35.
+## البيانات
+- تحفظ الحركات في Room داخل `golden360_payroll.db`.
+- تحفظ حالات الغياب بالتاريخ لكل موظف وشهر؛ يوم العمل يُعتبر حاضرًا تلقائيًا بعد موعد بداية الوردية ما لم يسجّل المستخدم غيابًا يدويًا.
+- تُحدد بداية الوردية وأيام الإجازة الأسبوعية المدفوعة من ملف الموظف. الإجازة الأسبوعية لا تُسجل غيابًا ولا تُخصم من المرتب، ولا يتطلب الحضور تسجيل الانصراف.
+- تحفظ أعداد الغياب القديمة غير المرتبطة بتاريخ منفصلًا أثناء ترقية قاعدة البيانات للحفاظ على كشوف الرواتب السابقة.
+- تحفظ تفاصيل مكان وتاريخ وموعد الوردية مع الحركة.
+- تحفظ نسخة كشف الراتب المعتمدة في سجل مستقل لكل موظف وشهر، وتصدر إلى PDF.
+- قاعدة الموظفين منفصلة عن قاعدة الحركات؛ لا يوجد FK عابر لقواعد البيانات.
 
-## Current limitations
-- This is an early scaffold, not a finished payroll application.
-- The form is not yet wired to persist employees through Room.
-- Attachment controls are placeholders; image picking and durable URI permissions are not implemented.
-- Employee listing/editing, advances, penalties, bonuses, overtime entries, absence calculations, and payroll reports still need implementation.
-- Android build and tests have not been run in this environment.
+## ملاحظات أمنية وتشغيلية
+- يجب إكمال سجل تدقيق تعديل/إلغاء الحركات وتحديد الصلاحيات قبل الإنتاج.
+- قواعد البيانات مشفرة عبر SQLCipher، ومفاتيحها محمية باستخدام Android Keystore؛ يجب اختبار ترحيل البيانات والاسترداد على جهاز فعلي قبل الإنتاج.
+- اختبر ترحيل قاعدة البيانات القديمة، والتشفير والاسترداد، والطباعة الفعلية على الجهاز والطابعة المستهدفين.
+- الحضور التلقائي مستنتج من جدول الوردية وليس تحققًا من وجود الموظف فعليًا؛ لا توجد بصمة أو GPS أو تسجيل دخول/انصراف. يجب تسجيل الغياب يدويًا عند معرفته.

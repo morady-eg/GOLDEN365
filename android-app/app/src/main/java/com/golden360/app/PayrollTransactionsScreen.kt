@@ -2,6 +2,15 @@ package com.golden360.app
 
 import android.content.Intent
 import android.net.Uri
+import android.content.Context
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -27,9 +36,15 @@ import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.JobTitle
 import com.golden360.app.data.PayrollTransactionDao
 import com.golden360.app.data.PayrollTransactionEntity
+import com.golden360.app.data.MonthlyAttendanceEntity
+import com.golden360.app.data.PayrollSnapshotEntity
+import com.golden360.app.data.PayrollAuditEventEntity
 import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
+import com.golden360.app.data.AttendancePolicy
+import com.golden360.app.data.PhoneNumberFormatter
 import com.golden360.app.data.PayrollSummaryCalculator
+import com.golden360.app.data.PayrollResult
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 
@@ -64,37 +79,59 @@ internal fun PayrollTransactionsScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
+    var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var auditEvents by remember { mutableStateOf<List<PayrollAuditEventEntity>>(emptyList()) }
+    val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val snapshot = pendingPayrollSnapshot
+        if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
+            .onFailure { error = "تعذر إنشاء ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        pendingPayrollSnapshot = null
+    }
 
     LaunchedEffect(employees) {
         if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
     }
-    LaunchedEffect(selectedEmployee?.id, month, transactions.size) {
+    LaunchedEffect(selectedEmployee?.id, month) {
+        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = null
+        amount = ""; note = ""; overtimePlace = ""; overtimeTime = ""; savedReference = null; whatsappMessage = null
         val employeeId = selectedEmployee?.id
-        transactions = if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
+        if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
             runCatching {
-                transactions = dao.getForEmployeeMonth(employeeId, month)
-                monthlyTotals = TransactionType.entries.associate { type ->
-                    type.name to dao.sumForEmployeeMonth(employeeId, month, type.name)
+                val loadedTransactions = dao.getForEmployeeMonth(employeeId, month)
+                val loadedTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employeeId, month, type.name) }
+                val attendance = dao.getAttendance(employeeId, month)
+                val datedAbsences = dao.getDailyAbsences(employeeId, month)
+                val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(selectedEmployee?.weeklyOffDays.orEmpty())
+                val effectiveDatedAbsences = datedAbsences.count { row ->
+                    val date = java.time.LocalDate.parse(row.dateKey)
+                    !AttendancePolicy.isWeeklyOff(date, weeklyOffDays)
                 }
-            }.onFailure { error = "تعذر تحميل ملخص الشهر" }
-            transactions
-        } else {
-            monthlyTotals = emptyMap()
-            emptyList()
-        }
+                val legacyAbsences = attendance?.legacyAbsentDays ?: 0
+                val effectiveAbsentDays = legacyAbsences + effectiveDatedAbsences
+                val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
+                val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
+                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = effectiveAbsentDays.toString(); approvedSnapshot = savedSnapshot; auditEvents = loadedAuditEvents
+            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
+        } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
 
     val payrollSummary = runCatching {
-        val employee = selectedEmployee ?: throw IllegalArgumentException("اختر موظفًا")
-        val absent = absentDays.toInt()
-        PayrollSummaryCalculator.calculate(
-            baseSalaryPiasters = employee.baseSalaryPiasters,
-            absentDays = absent,
-            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
-            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
-            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
-            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L
-        )
+        val snapshot = approvedSnapshot
+        if (snapshot != null) {
+            PayrollResult(snapshot.absenceDeductionPiasters, snapshot.overtimePiasters, snapshot.netSalaryPiasters)
+        } else {
+            val employee = selectedEmployee ?: throw IllegalArgumentException("اختر موظفًا")
+            val absent = absentDays.toIntOrNull() ?: throw IllegalArgumentException("أيام الغياب يجب أن تكون من 0 إلى 30")
+            PayrollSummaryCalculator.calculate(
+                baseSalaryPiasters = employee.baseSalaryPiasters,
+                absentDays = absent,
+                penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L
+            )
+        }
     }.getOrNull()
 
     val overtimeAmount = runCatching {
@@ -170,21 +207,15 @@ internal fun PayrollTransactionsScreen(
                 }
             }
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
-            var absentExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = absentExpanded, onExpandedChange = { absentExpanded = !absentExpanded }) {
-                OutlinedTextField(
-                    value = absentDays,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("أيام الغياب في الشهر") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = absentExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = fieldColors()
-                )
-                ExposedDropdownMenu(expanded = absentExpanded, onDismissRequest = { absentExpanded = false }) {
-                    (0..30).forEach { days ->
-                        DropdownMenuItem(text = { Text("$days يوم") }, onClick = { absentDays = days.toString(); absentExpanded = false })
+            Surface(
+                color = Panel, shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF4A3D24))
+            ) {
+                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("أيام الغياب المسجلة لهذا الشهر", color = Muted, fontSize = 12.sp)
+                        Text("$absentDays يوم", color = SoftGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("يتم تسجيل الغياب بالتاريخ من تبويب «الحضور»؛ الإجازة الأسبوعية مدفوعة.", color = Muted, fontSize = 11.sp)
                     }
                 }
             }
@@ -306,17 +337,17 @@ internal fun PayrollTransactionsScreen(
             if (whatsappMessage != null) {
                 OutlinedButton(
                     onClick = {
-                        val phone = selectedEmployee?.phone.orEmpty().filter { it.isDigit() }
-                        if (phone.isNotBlank()) {
+                        val phone = PhoneNumberFormatter.normalizeWhatsappPhone(selectedEmployee?.phone.orEmpty())
+                        if (phone != null) {
                             val uri = Uri.parse("https://wa.me/$phone?text=" + Uri.encode(whatsappMessage))
                             context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                        } else error = "أضف رقم هاتف الموظف في ملفه أولاً"
+                        } else error = "أدخل رقم واتساب صحيحًا في ملف الموظف أولاً"
                     }, modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftGold)
                 ) { Text("إرسال التفاصيل عبر واتساب") }
             }
             Button(
-                enabled = !saving,
+                enabled = !saving && approvedSnapshot == null,
                 onClick = {
                     val employee = selectedEmployee
                     val monthValid = month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))
@@ -328,14 +359,22 @@ internal fun PayrollTransactionsScreen(
                     else if (count == null || count <= 0) error = "العدد يجب أن يكون عددًا صحيحًا أكبر من صفر"
                     else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
-                    else if (selectedType == TransactionType.OVERTIME && overtimeTime.isBlank()) error = "أدخل موعد الوردية الإضافية"
+                    else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.YearMonth.from(java.time.LocalDate.parse(overtimeDate)).toString() }.getOrNull() != month) error = "شهر الحركة يجب أن يطابق شهر تاريخ الوردية"
+                    else if (selectedType == TransactionType.OVERTIME && !overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) error = "اختر موعدًا صحيحًا للوردية"
                     else if (enteredAmount == null || enteredAmount <= 0) error = "أدخل قيمة صحيحة أكبر من صفر"
                     else {
                         error = null
                         saving = true
                         scope.launch {
                             runCatching {
-                                dao.create(employee.id, selectedType, month, enteredAmount, count, note)
+                                val currentEmployee = com.golden360.app.data.EmployeeDatabase.get(context).employeeDao().getById(employee.id)
+                                 ?: error("الموظف لم يعد موجودًا في قاعدة البيانات")
+                             require(!currentEmployee.archived) { "لا يمكن تسجيل حركة مالية لموظف مؤرشف" }
+                             require(selectedType != TransactionType.OVERTIME || enteredAmount == Math.multiplyExact(currentEmployee.extraShiftRatePiasters, count.toLong())) { "تغير سعر الوردية؛ حدّث بيانات الموظف وأعد المحاولة" }
+                             dao.create(currentEmployee.id, selectedType, month, enteredAmount, count, note,
+                                    overtimePlace = if (selectedType == TransactionType.OVERTIME) overtimePlace else "",
+                                    overtimeDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else "",
+                                    overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
                             }.onSuccess { reference ->
                                 savedReference = reference
                                 val dateLabel = java.time.LocalDate.now().toString()
@@ -345,7 +384,7 @@ internal fun PayrollTransactionsScreen(
                                         append("*بيانات الموظف*\n")
                                         append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
                                         append("*تفاصيل الوردية الإضافية*\n")
-                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}")
+                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}\nعدد الورديات: ${count}\nالقيمة الإجمالية: ${formatMoney(enteredAmount)} ج.م\nشهر المرتب: ${month}")
                                         if (note.isNotBlank()) append("\nملاحظات: ${note.trim()}")
                                         append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
                                     }
@@ -371,6 +410,8 @@ internal fun PayrollTransactionsScreen(
                                 overtimePlace = ""
                                 overtimeTime = ""
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
+                                monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
+                                 auditEvents = dao.getAuditEvents(employee.id, month)
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
                         }
@@ -383,18 +424,46 @@ internal fun PayrollTransactionsScreen(
                 if (saving) CircularProgressIndicator(Modifier.size(20.dp), color = Black, strokeWidth = 2.dp)
                 else Text("حفظ الحركة وإنشاء رقم مرجعي", fontWeight = FontWeight.Bold)
             }
+            if (approvedSnapshot != null) Text("هذا الشهر معتمد؛ تم إيقاف تعديل الغياب والحركات لحماية نسخة كشف الراتب.", color = SoftGold, fontSize = 12.sp)
             if (payrollSummary != null && selectedEmployee != null) {
                 Surface(color = Color(0xFF302719), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, Color(0xFF6A5429))) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("ملخص المرتب — ${selectedEmployee!!.fullName}", color = SoftGold, fontWeight = FontWeight.Bold)
-                        Text("الراتب الأساسي: ${formatMoney(selectedEmployee!!.baseSalaryPiasters)} ج.م", color = Color.White, fontSize = 13.sp)
+                        Text("ملخص المرتب — ${approvedSnapshot?.employeeName ?: selectedEmployee!!.fullName}", color = SoftGold, fontWeight = FontWeight.Bold)
+                        Text("الراتب الأساسي: ${formatMoney(approvedSnapshot?.baseSalaryPiasters ?: selectedEmployee!!.baseSalaryPiasters)} ج.م", color = Color.White, fontSize = 13.sp)
                         Text("خصم الغياب: ${formatMoney(payrollSummary.absenceDeductionPiasters)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("السلف: ${formatMoney(monthlyTotals[TransactionType.ADVANCE.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("الجزاءات: ${formatMoney(monthlyTotals[TransactionType.PENALTY.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("السلف: ${formatMoney(approvedSnapshot?.advancesPiasters ?: (monthlyTotals[TransactionType.ADVANCE.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("الجزاءات: ${formatMoney(approvedSnapshot?.penaltiesPiasters ?: (monthlyTotals[TransactionType.PENALTY.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
                         Text("الورديات الإضافية: ${formatMoney(payrollSummary.overtimePayPiasters)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("المكافآت: ${formatMoney(monthlyTotals[TransactionType.BONUS.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("المكافآت: ${formatMoney(approvedSnapshot?.bonusesPiasters ?: (monthlyTotals[TransactionType.BONUS.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
                         HorizontalDivider(color = Color(0xFF6A5429))
                         Text("صافي المرتب: ${formatMoney(payrollSummary.netSalaryPiasters)} ج.م", color = SoftGold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        if (com.golden360.app.data.PayrollPolicy.requiresManualReview(payrollSummary.netSalaryPiasters)) {
+                            Text("تنبيه: صافي المرتب سالب. لم يتم تصفيره تلقائيًا؛ يجب مراجعة المديونية والخصومات يدويًا قبل الصرف.", color = Color(0xFFFF8A80), fontSize = 12.sp)
+                        }
+                        Button(
+                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
+                            onClick = {
+                                val employee = selectedEmployee; val summary = payrollSummary; val days = absentDays.toIntOrNull()
+                                if (employee == null || summary == null || days == null) error = "راجع بيانات الموظف وأيام الغياب"
+                                else scope.launch {
+                                    runCatching {
+                                        dao.getPayrollSnapshot(employee.id, month) ?: PayrollSnapshotEntity(
+                                            employeeId = employee.id, monthKey = month, employeeName = employee.fullName, employeeCode = employee.code,
+                                            jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
+                                            baseSalaryPiasters = employee.baseSalaryPiasters, absentDays = days,
+                                            absenceDeductionPiasters = summary.absenceDeductionPiasters,
+                                            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                                            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                            netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
+                                        ).let { snapshot -> dao.approvePayrollSnapshot(snapshot).also { auditEvents = dao.getAuditEvents(employee.id, month) } }
+                                    }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
+                                        .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                        ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                        Text("النسخة المعتمدة ثابتة ولا تتغير تلقائيًا عند تعديل ملف الموظف.", color = Muted, fontSize = 11.sp)
                     }
                 }
             } else if (selectedEmployee != null) {
@@ -411,6 +480,7 @@ internal fun PayrollTransactionsScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(transaction.reference, color = SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
+                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
                                 }
                                 Text("${formatMoney(transaction.amountPiasters)} ج.م", color = Color.White, fontWeight = FontWeight.SemiBold)
@@ -418,6 +488,26 @@ internal fun PayrollTransactionsScreen(
                         }
                     }
                 }
+            }
+            Text("سجل التدقيق المالي", color = SoftGold, fontWeight = FontWeight.Bold)
+            if (auditEvents.isEmpty()) {
+                Text("لا توجد أحداث تدقيق لهذا الشهر حتى الآن.", color = Muted, fontSize = 12.sp)
+            } else {
+                auditEvents.take(20).forEach { event ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        val actionLabel = when (event.action) {
+                            "TRANSACTION_CREATED" -> "تسجيل حركة مالية"
+                            "ABSENCE_UPDATED" -> "تعديل أيام الغياب"
+                            "ABSENCE_DATE_MARKED" -> "تسجيل غياب بتاريخ"
+                            "ABSENCE_DATE_CLEARED" -> "إلغاء غياب بتاريخ"
+                            "PAYROLL_APPROVED" -> "اعتماد كشف الراتب"
+                            else -> event.action
+                        }
+                        Text("${actionLabel} • ${java.time.Instant.ofEpochMilli(event.createdAtEpochMillis)}", color = Color.White, fontSize = 12.sp)
+                        Text("قبل: ${event.beforeValue ?: "—"} | بعد: ${event.afterValue} | المرجع: ${event.transactionReference ?: "—"}", color = Muted, fontSize = 11.sp)
+                    }
+                }
+                if (auditEvents.size > 20) Text("يُعرض أحدث 20 حدثًا من أصل ${auditEvents.size}.", color = Muted, fontSize = 11.sp)
             }
         }
     }
@@ -433,8 +523,62 @@ private fun GoldenField(label: String, value: String, onValueChange: (String) ->
     )
 }
 
-private fun formatMoney(piasters: Long): String =
-    java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
+private fun formatMoney(piasters: Long): String = java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
+
+private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: PayrollSnapshotEntity) {
+    val document = PdfDocument()
+    try {
+        val width = 595; val height = 842
+        val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
+        val canvas = page.canvas; canvas.drawColor(android.graphics.Color.WHITE)
+        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(30, 30, 30)
+            textAlign = Paint.Align.CENTER
+            textSize = 20f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, headerPaint)
+        headerPaint.textSize = 16f
+        canvas.drawText("كشف راتب معتمد", width / 2f, 88f, headerPaint)
+        val rows = listOf(
+            "اسم الموظف: ${snapshot.employeeName}",
+            "كود الموظف: ${snapshot.employeeCode}",
+            "المسمى الوظيفي: ${snapshot.jobTitle}",
+            "شهر المرتب: ${snapshot.monthKey}",
+            "الراتب الأساسي: ${formatMoney(snapshot.baseSalaryPiasters)} ج.م",
+            "أيام الغياب: ${snapshot.absentDays}",
+            "خصم الغياب: ${formatMoney(snapshot.absenceDeductionPiasters)} ج.م",
+            "السلف: ${formatMoney(snapshot.advancesPiasters)} ج.م",
+            "الجزاءات: ${formatMoney(snapshot.penaltiesPiasters)} ج.م",
+            "الورديات الإضافية: ${formatMoney(snapshot.overtimePiasters)} ج.م",
+            "المكافآت: ${formatMoney(snapshot.bonusesPiasters)} ج.م",
+            "صافي المرتب: ${formatMoney(snapshot.netSalaryPiasters)} ج.م",
+            "تاريخ الاعتماد: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}",
+            "هذه نسخة محفوظة ولا يعاد حسابها تلقائيًا."
+        )
+        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(35, 35, 35)
+            textSize = 14f
+        }
+        var y = 122f
+        rows.forEachIndexed { index, row ->
+            textPaint.textSize = if (index == 11) 18f else 14f
+            textPaint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            textPaint.color = if (index == 11) android.graphics.Color.rgb(145, 105, 25) else android.graphics.Color.rgb(35, 35, 35)
+            val layout = StaticLayout.Builder.obtain(row, 0, row.length, textPaint, width - 96)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .setTextDirection(TextDirectionHeuristics.RTL)
+                .build()
+            canvas.save()
+            canvas.translate(48f, y)
+            layout.draw(canvas)
+            canvas.restore()
+            y += layout.height + if (index == 11) 20f else 12f
+        }
+        document.finishPage(page)
+        context.contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
+    } finally { document.close() }
+}
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(

@@ -16,7 +16,9 @@ data class EmployeeDraft(
     val nationalIdFrontUri: String? = null,
     val nationalIdBackUri: String? = null,
     val extraShiftRate: String,
-    val baseSalary: String = ""
+    val baseSalary: String = "",
+    val shiftStartTime: String = "08:00",
+    val weeklyOffDays: Set<java.time.DayOfWeek> = emptySet()
 )
 
 data class Employee(
@@ -46,8 +48,17 @@ object EmployeeValidator {
         val errors = linkedMapOf<String, String>()
         if (draft.fullName.trim().isEmpty()) errors["fullName"] = "اسم الموظف إجباري"
         if (draft.jobTitle == null) errors["jobTitle"] = "اختر الوظيفة"
+        if (!AttendancePolicy.isValidShiftStartTime(draft.shiftStartTime)) errors["shiftStartTime"] = "موعد بداية الوردية يجب أن يكون بصيغة HH:mm"
         validatePositiveMoney(draft.baseSalary, "baseSalary", "الراتب الأساسي", errors)
         validatePositiveMoney(draft.extraShiftRate, "extraShiftRate", "سعر الوردية الإضافية", errors)
+        val phoneDigits = draft.phone.filter { it.isDigit() }
+        if (draft.phone.isNotBlank() && !phoneDigits.matches(Regex("01[0125][0-9]{8}|20(10|11|12|15)[0-9]{8}|[1-9][0-9]{9,14}"))) {
+            errors["phone"] = "رقم الهاتف غير صحيح؛ أدخل رقمًا محليًا أو دوليًا مع كود الدولة"
+        }
+        val hireDate = draft.hireDate.trim()
+        if (hireDate.isNotEmpty() && runCatching { java.time.LocalDate.parse(hireDate) }.isFailure) {
+            errors["hireDate"] = "تاريخ التعيين يجب أن يكون بصيغة YYYY-MM-DD"
+        }
         val nationalId = draft.nationalId.trim()
         if (nationalId.isNotEmpty() && !nationalId.matches(Regex("[0-9]{14}"))) {
             errors["nationalId"] = "الرقم القومي يجب أن يتكون من 14 رقمًا"
@@ -75,6 +86,19 @@ object EmployeeValidator {
     fun toPiasters(amount: String): Long? = runCatching {
         amount.trim().replace(',', '.').toBigDecimal().movePointRight(2).longValueExact()
     }.getOrNull()
+}
+
+object PhoneNumberFormatter {
+    /** Returns an international number suitable for wa.me, or null for invalid input. */
+    fun normalizeWhatsappPhone(raw: String): String? {
+        val digits = raw.filter { it.isDigit() }
+        return when {
+            digits.matches(Regex("01[0125][0-9]{8}")) -> "20" + digits.drop(1)
+            digits.matches(Regex("20(10|11|12|15)[0-9]{8}")) -> digits
+            digits.matches(Regex("[1-9][0-9]{9,14}")) -> digits
+            else -> null
+        }
+    }
 }
 
 object EmployeeCodeFormatter {

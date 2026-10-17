@@ -1,27 +1,33 @@
-# GOLDEN 360 — Native Android Payroll & HR
+# GOLDEN365 — GOLDEN SHINE Payroll Manager
 
-GOLDEN 360 is being developed as a **native Android application written in Kotlin**. It is not an HTML/JavaScript app wrapped with Capacitor.
+تطبيق Android لإدارة الموظفين والحركات المالية والرواتب لشركة GOLDEN SHINE.
 
-## Native Android stack
-- Kotlin
-- Jetpack Compose for native Android UI
-- Material 3 components
-- Room for on-device SQLite persistence
-- Gradle Kotlin DSL
-- JUnit for unit tests
+## الوظائف الحالية
+- إدارة ملفات الموظفين وبيانات الاتصال والراتب الأساسي وسعر الوردية الإضافية.
+- تسجيل السلف والجزاءات والمكافآت والورديات الإضافية بأرقام مرجعية.
+- حفظ أيام الغياب لكل موظف وشهر وحفظ تفاصيل الوردية داخل الحركة.
+- سجل تدقيق محلي يسجل إنشاء الحركات وتعديل الغياب واعتماد كشوف الرواتب.
+- حساب ملخص الراتب وحفظ نسخة معتمدة لكل موظف وشهر وتصديرها إلى PDF.
+- صافي الراتب السالب لا يُحوّل إلى صفر تلقائيًا؛ يظهر تحذير ويجب مراجعته يدويًا قبل الصرف.
+- بطاقات هوية عمودية 54 × 86 مم مع QR Code ودعم الطباعة الجماعية.
+- تشفير قاعدتي بيانات الموظفين والرواتب باستخدام SQLCipher، ومفاتيح مرور عشوائية ملفوفة بمفتاح Android Keystore.
+- Gradle Wrapper مثبت على Gradle 8.9 مع التحقق من SHA-256 للتوزيعة.
 
-## Current starter scope
-The `android-app/` directory contains an initial Android Studio project scaffold:
-- Arabic employee form with black-and-gold styling
-- Employee data model and validation
-- Room entity/DAO/database scaffold
-- Sequential employee code formatter: `GS_000001`
-- Unit tests for validation and money conversion
+## البناء والاختبار
+افتح مجلد `android-app` في Android Studio مع JDK 17، أو شغّل من مجلد `android-app`:
 
-## Open in Android Studio
-Open the `android-app` directory as the project. Use JDK 17 and Android SDK 35.
+```bash
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
+```
 
-## Not finished yet
-This is an early starter, not a production-ready payroll app. Employee form submission is not yet wired to persist data through Room; attachment buttons are placeholders; and employee listing/editing, advances, penalties, bonuses, overtime entries, absence deductions, payroll calculation, and reports remain to be implemented. The Android build and tests have not yet been run in this environment.
+على Windows استخدم `gradlew.bat`. ينفذ GitHub Actions اختبارات الوحدة وبناء نسخة Debug APK باستخدام الـWrapper الموجود في المستودع.
 
-Employee personal data should not be committed to GitHub. The repository is for source code only.
+## التشفير وترحيل البيانات
+عند أول تشغيل بعد التحديث، يحاول التطبيق تحويل قواعد البيانات القديمة غير المشفرة إلى قواعد SQLCipher مشفرة مع التحقق من النسخة الجديدة قبل استبدال الأصل. احتفظ بالتطبيق مثبتًا ولا تمسح بياناته أثناء أول تشغيل بعد التحديث، وخذ نسخة احتياطية موثوقة وفق سياسة الشركة قبل نشر التحديث على أجهزة تحتوي بيانات فعلية. إذا تعذر التحقق من المفتاح أو الترحيل، يجب أن يتوقف التطبيق بدل فتح البيانات بصمت دون تشفير.
+
+## حدود يجب معرفتها قبل الاستخدام الرسمي
+- سجل التدقيق محلي وغير مرتبط بهوية مستخدم موثّقة، وليس سجلًا مقاومًا للتلاعب على مستوى الجهاز.
+- قواعد الموظفين والحركات لا تزال منفصلة؛ يتم التحقق من وجود الموظف وعدم أرشفته عند تسجيل الحركة، لكن لا يوجد مفتاح أجنبي مباشر بين قاعدتي Room.
+- اختبر الطباعة على طابعة فعلية وتحقق من المقاس ومسح QR قبل الاعتماد.
+- اختبر ترحيل قاعدة بيانات حقيقية على نسخة اختبارية قبل التحديث العام، وتحقق من استعادة البيانات.
