@@ -167,9 +167,43 @@ internal fun PayrollTransactionsScreen(
                 }
             }
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
-            GoldenField("أيام الغياب في الشهر (0 إلى 30)", absentDays, { absentDays = it }, KeyboardType.Number)
+            var absentExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(expanded = absentExpanded, onExpandedChange = { absentExpanded = !absentExpanded }) {
+                OutlinedTextField(
+                    value = absentDays,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("أيام الغياب في الشهر") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = absentExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = fieldColors()
+                )
+                ExposedDropdownMenu(expanded = absentExpanded, onDismissRequest = { absentExpanded = false }) {
+                    (0..30).forEach { days ->
+                        DropdownMenuItem(text = { Text("$days يوم") }, onClick = { absentDays = days.toString(); absentExpanded = false })
+                    }
+                }
+            }
             if (selectedType == TransactionType.OVERTIME) {
-                GoldenField("عدد الورديات (للحساب الداخلي)", quantity, { quantity = it.filter(Char::isDigit); savedReference = null }, KeyboardType.Number)
+                var quantityExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(expanded = quantityExpanded, onExpandedChange = { quantityExpanded = !quantityExpanded }) {
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("عدد الورديات (للحساب الداخلي)") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quantityExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = fieldColors()
+                    )
+                    ExposedDropdownMenu(expanded = quantityExpanded, onDismissRequest = { quantityExpanded = false }) {
+                        (1..10).forEach { count ->
+                            DropdownMenuItem(text = { Text("$count وردية") }, onClick = { quantity = count.toString(); quantityExpanded = false; savedReference = null })
+                        }
+                    }
+                }
                 GoldenField("مكان الوردية الإضافية", overtimePlace, { overtimePlace = it; savedReference = null }, KeyboardType.Text)
                 GoldenField("تاريخ الوردية (YYYY-MM-DD)", overtimeDate, { overtimeDate = it; savedReference = null }, KeyboardType.Ascii)
                 GoldenField("موعد الوردية", overtimeTime, { overtimeTime = it; savedReference = null }, KeyboardType.Text)
