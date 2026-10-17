@@ -1,5 +1,6 @@
 package com.golden360.app
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -56,6 +57,8 @@ import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PayrollDatabase
 import com.golden360.app.data.JobTitle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal val Black = Color(0xFF101010)
 internal val Panel = Color(0xFF1B1B1B)
@@ -89,6 +92,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var showForm by remember { mutableStateOf(false) }
     var showPayroll by remember { mutableStateOf(false) }
     var showIdCard by remember { mutableStateOf(false) }
+    var showBackupScreen by remember { mutableStateOf(false) }
     var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
@@ -122,7 +126,7 @@ private fun Golden360App(dao: EmployeeDao) {
         containerColor = Black,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            if (!showForm && !showPayroll && !showIdCard) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
                 TopAppBar(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -157,11 +161,11 @@ private fun Golden360App(dao: EmployeeDao) {
                     title = {
                         Column {
                             Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
+                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; selectedIdEmployee = null; editing = null }) {
+                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; showBackupScreen = false; selectedIdEmployee = null; editing = null }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "رجوع", tint = Gold)
                         }
                     },
@@ -170,7 +174,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         bottomBar = {
-            if (!showForm && !showPayroll && !showIdCard) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
                 NavigationBar(containerColor = Color(0xFF171717), contentColor = SoftGold, tonalElevation = 0.dp) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
@@ -198,7 +202,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && !showIdCard && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
@@ -207,6 +211,11 @@ private fun Golden360App(dao: EmployeeDao) {
         }
     ) { padding ->
         when {
+            showBackupScreen -> BackupRestoreScreen(
+                modifier = Modifier.padding(padding),
+                onBack = { showBackupScreen = false },
+                onFinished = { (LocalContext.current as? Activity)?.recreate() }
+            )
             showForm -> EmployeeFormScreen(
                 employee = editing, dao = dao, modifier = Modifier.padding(padding),
                 onSaved = { message ->
@@ -252,7 +261,8 @@ private fun Golden360App(dao: EmployeeDao) {
             )
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
-                onOpen = { openTransactions(it) }
+                onOpen = { openTransactions(it) },
+                onBackup = { showBackupScreen = true }
             )
             activeTab == "payroll" -> PayrollOverviewScreen(
                 modifier = Modifier.padding(padding),
