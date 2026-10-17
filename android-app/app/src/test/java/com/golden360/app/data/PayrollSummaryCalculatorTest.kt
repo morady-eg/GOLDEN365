@@ -31,6 +31,12 @@ class PayrollSummaryCalculatorTest {
         }
     }
 
+    @Test fun rejectsOverflowInsteadOfSilentlyWrappingNetSalary() {
+        assertThrows(ArithmeticException::class.java) {
+            PayrollSummaryCalculator.calculate(Long.MAX_VALUE, 0, 0, 0, 1, 0)
+        }
+    }
+
     @Test fun handlesZeroAbsenceAndZeroLedgerAmounts() {
         val result = PayrollSummaryCalculator.calculate(123_456, 0, 0, 0, 0, 0)
         assertEquals(0L, result.absenceDeductionPiasters)
