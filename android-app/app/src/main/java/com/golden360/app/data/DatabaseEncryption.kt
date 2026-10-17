@@ -164,7 +164,11 @@ internal object DatabaseEncryption {
                 passphrase,
                 null,
                 SQLiteDatabase.OPEN_READWRITE
-            ).use { db -> db.rawQuery("PRAGMA cipher_version", null).use { it.moveToFirst() } }
+            ).use { db ->
+                db.rawQuery("SELECT count(*) FROM sqlite_master", null).use { cursor ->
+                    cursor.moveToFirst()
+                }
+            }
         } catch (_: Exception) {
             false
         }
