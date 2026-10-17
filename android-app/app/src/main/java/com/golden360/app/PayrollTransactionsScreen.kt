@@ -433,6 +433,9 @@ internal fun PayrollTransactionsScreen(
                         Text("المكافآت: ${formatMoney(approvedSnapshot?.bonusesPiasters ?: (monthlyTotals[TransactionType.BONUS.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
                         HorizontalDivider(color = Color(0xFF6A5429))
                         Text("صافي المرتب: ${formatMoney(payrollSummary.netSalaryPiasters)} ج.م", color = SoftGold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        if (com.golden360.app.data.PayrollPolicy.requiresManualReview(payrollSummary.netSalaryPiasters)) {
+                            Text("تنبيه: صافي المرتب سالب. لم يتم تصفيره تلقائيًا؛ يجب مراجعة المديونية والخصومات يدويًا قبل الصرف.", color = Color(0xFFFF8A80), fontSize = 12.sp)
+                        }
                         Button(
                             enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
                             onClick = {
