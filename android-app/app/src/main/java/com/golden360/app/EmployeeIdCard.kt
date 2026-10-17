@@ -368,8 +368,8 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.030f, paint)
 
     // QR is isolated in a white quiet zone for reliable scanning.
-    val qrSize = trimWidth * 0.235f
-    val qrTop = trim.top + trimHeight * 0.735f
+    val qrSize = trimWidth * 0.18f
+    val qrTop = trim.top + trimHeight * 0.73f
     val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
@@ -380,15 +380,15 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = muted
     paint.textSize = trimWidth * 0.025f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.029f, paint)
+    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.023f, paint)
 
     // Brand footer and subtle side rail.
     paint.color = gold
-    canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.067f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.067f + 0.8f, paint)
+    canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f + 0.7f, paint)
     paint.color = lightGold
     paint.textSize = trimWidth * 0.027f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.031f, paint)
+    canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.019f, paint)
     paint.color = gold
     canvas.drawRect(trim.left, trim.top + trimHeight * 0.21f, trim.left + 1.2f, trim.bottom - trimHeight * 0.08f, paint)
 
