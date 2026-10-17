@@ -60,8 +60,12 @@ object AttendancePolicy {
         suspensionPeriods.split(";").filter { it.isNotBlank() }.any { entry ->
             val parts = entry.split("|", limit = 2)
             val start = runCatching { LocalDate.parse(parts[0]) }.getOrNull()
-            val end = parts.getOrNull(1)?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            start != null && !date.isBefore(start) && (end == null || date.isBefore(end))
+            val rawEnd = parts.getOrNull(1).orEmpty()
+            val end = rawEnd.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            // Only a genuinely empty end marks an open suspension. A malformed closed
+            // interval must not silently become an indefinite suspension.
+            val validEnd = rawEnd.isBlank() || end != null
+            validEnd && start != null && !date.isBefore(start) && (end == null || date.isBefore(end))
         }
 
     fun isEmployeeInactiveOn(
