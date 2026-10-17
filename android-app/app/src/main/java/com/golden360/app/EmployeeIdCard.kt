@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.golden360.app.data.EmployeeEntity
-import com.golden360.app.data.JobTitle
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +97,7 @@ internal fun EmployeeIdCardScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
-            Text(if (employees.size == 1) "بطاقة هوية الموظف" else "معاينة طباعة ${employees.size} بطاقة", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "EMPLOYEE ID CARD" else "PREVIEW ${employees.size} EMPLOYEE ID CARDS", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         Surface(
             modifier = Modifier.weight(1f, fill = false)
@@ -131,14 +130,14 @@ internal fun EmployeeIdCardScreen(
                     if (photo != null) {
                         Image(
                             photo.asImageBitmap(),
-                            contentDescription = if (employee.profilePhotoUri.isNullOrBlank()) "الصورة الافتراضية للموظف" else "الصورة الشخصية للموظف",
+                            contentDescription = if (employee.profilePhotoUri.isNullOrBlank()) "DEFAULT EMPLOYEE PHOTO" else "EMPLOYEE PHOTO",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
                     }
                 }
                 Text(
-                    employee.fullName,
+                    employee.fullName.uppercase(java.util.Locale.ROOT),
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -146,7 +145,7 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 2
                 )
                 Text(
-                    JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
+                    employeeJobTitleEnglish(employee.jobTitle),
                     color = Color(0xFFE0BE69),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -167,7 +166,7 @@ internal fun EmployeeIdCardScreen(
                 Text("SCAN TO IDENTIFY", color = Color(0xFFC6B78F), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        Text("مقاس البطاقة: 54 × 86 مم • خلفية بيضاء", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
+        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
         Button(
             onClick = { printEmployeeIds(context, employees) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -175,12 +174,20 @@ internal fun EmployeeIdCardScreen(
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
         ) {
             Icon(Icons.Default.Print, contentDescription = null)
-            Text(if (employees.size == 1) "طباعة بطاقة الموظف" else "طباعة ${employees.size} بطاقة معًا", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "PRINT EMPLOYEE ID" else "PRINT ${employees.size} EMPLOYEE IDS", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
         }
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Text("رجوع", color = SoftGold)
+            Text("BACK", color = SoftGold)
         }
     }
+}
+
+private fun employeeJobTitleEnglish(jobTitle: String): String = when (jobTitle.uppercase(java.util.Locale.ROOT)) {
+    "ADMIN" -> "ADMINISTRATOR"
+    "SUPERVISOR" -> "SUPERVISOR"
+    "TECHNICIAN" -> "TECHNICIAN"
+    "ASSISTANT" -> "ASSISTANT"
+    else -> jobTitle.replace('_', ' ').uppercase(java.util.Locale.ROOT)
 }
 
 internal fun createEmployeeQrMatrix(code: String) =
@@ -343,9 +350,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = white
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     paint.textSize = trimWidth * 0.057f
-    canvas.drawText(ellipsizeCentered(employee.fullName, paint, trimWidth - 12f), trim.centerX(), nameY, paint)
+    canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
 
-    val job = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
+    val job = employeeJobTitleEnglish(employee.jobTitle)
     paint.color = lightGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.040f
