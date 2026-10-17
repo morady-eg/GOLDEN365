@@ -24,6 +24,8 @@ data class EmployeeEntity(
     val code: String,
     val fullName: String,
     @ColumnInfo(defaultValue = "") val phone: String = "",
+    @ColumnInfo(defaultValue = "'08:00'") val shiftStartTime: String = "08:00",
+    @ColumnInfo(defaultValue = "''") val weeklyOffDays: String = "",
     val jobTitle: String,
     val hireDate: String?,
     val nationalId: String?,
@@ -78,6 +80,8 @@ interface EmployeeDao {
                 code = EmployeeCodeFormatter.format(next),
                 fullName = draft.fullName.trim(),
                 phone = draft.phone.trim(),
+                shiftStartTime = draft.shiftStartTime.trim(),
+                weeklyOffDays = AttendancePolicy.serializeWeeklyOffDays(draft.weeklyOffDays),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
@@ -102,6 +106,8 @@ interface EmployeeDao {
             old.copy(
                 fullName = draft.fullName.trim(),
                 phone = draft.phone.trim(),
+                shiftStartTime = draft.shiftStartTime.trim(),
+                weeklyOffDays = AttendancePolicy.serializeWeeklyOffDays(draft.weeklyOffDays),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
@@ -117,7 +123,7 @@ interface EmployeeDao {
     }
 }
 
-@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 3, exportSchema = false)
+@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 4, exportSchema = false)
 abstract class EmployeeDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao
 
@@ -134,6 +140,13 @@ abstract class EmployeeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE employees ADD COLUMN shiftStartTime TEXT NOT NULL DEFAULT '08:00'")
+                database.execSQL("ALTER TABLE employees ADD COLUMN weeklyOffDays TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var INSTANCE: EmployeeDatabase? = null
         fun get(context: Context): EmployeeDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: run {
@@ -142,7 +155,7 @@ abstract class EmployeeDatabase : RoomDatabase() {
                     context.applicationContext,
                     EmployeeDatabase::class.java,
                     "golden360.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build().also { INSTANCE = it }
             }
         }
