@@ -41,6 +41,7 @@ import com.golden360.app.data.PayrollSnapshotEntity
 import com.golden360.app.data.PayrollAuditEventEntity
 import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
+import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PhoneNumberFormatter
 import com.golden360.app.data.PayrollSummaryCalculator
 import com.golden360.app.data.PayrollResult
@@ -100,9 +101,17 @@ internal fun PayrollTransactionsScreen(
                 val loadedTransactions = dao.getForEmployeeMonth(employeeId, month)
                 val loadedTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employeeId, month, type.name) }
                 val attendance = dao.getAttendance(employeeId, month)
+                val datedAbsences = dao.getDailyAbsences(employeeId, month)
+                val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(selectedEmployee?.weeklyOffDays.orEmpty())
+                val effectiveDatedAbsences = datedAbsences.count { row ->
+                    val date = java.time.LocalDate.parse(row.dateKey)
+                    !AttendancePolicy.isWeeklyOff(date, weeklyOffDays)
+                }
+                val legacyAbsences = attendance?.legacyAbsentDays ?: 0
+                val effectiveAbsentDays = legacyAbsences + effectiveDatedAbsences
                 val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
                 val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
-                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString(); approvedSnapshot = savedSnapshot; auditEvents = loadedAuditEvents
+                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = effectiveAbsentDays.toString(); approvedSnapshot = savedSnapshot; auditEvents = loadedAuditEvents
             }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
         } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
