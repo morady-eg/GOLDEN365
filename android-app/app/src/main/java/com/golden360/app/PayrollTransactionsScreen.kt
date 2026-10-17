@@ -36,6 +36,7 @@ import com.golden360.app.data.MonthlyAttendanceEntity
 import com.golden360.app.data.PayrollSnapshotEntity
 import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
+import com.golden360.app.data.PhoneNumberFormatter
 import com.golden360.app.data.PayrollSummaryCalculator
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -326,11 +327,11 @@ internal fun PayrollTransactionsScreen(
             if (whatsappMessage != null) {
                 OutlinedButton(
                     onClick = {
-                        val phone = selectedEmployee?.phone.orEmpty().filter { it.isDigit() }
-                        if (phone.isNotBlank()) {
+                        val phone = PhoneNumberFormatter.normalizeWhatsappPhone(selectedEmployee?.phone.orEmpty())
+                        if (phone != null) {
                             val uri = Uri.parse("https://wa.me/$phone?text=" + Uri.encode(whatsappMessage))
                             context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                        } else error = "أضف رقم هاتف الموظف في ملفه أولاً"
+                        } else error = "أدخل رقم واتساب صحيحًا في ملف الموظف أولاً"
                     }, modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftGold)
                 ) { Text("إرسال التفاصيل عبر واتساب") }
