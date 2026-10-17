@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -479,8 +477,11 @@ internal fun PayrollTransactionsScreen(
             if (transactions.isEmpty()) {
                 Text("لا توجد حركات مسجلة لهذا الموظف في هذا الشهر.", color = Muted, fontSize = 12.sp)
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-                    items(transactions, key = { it.id }) { transaction ->
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
+                ) {
+                    transactions.forEach { transaction ->
                         Surface(
                             color = Panel,
                             shape = RoundedCornerShape(12.dp),
