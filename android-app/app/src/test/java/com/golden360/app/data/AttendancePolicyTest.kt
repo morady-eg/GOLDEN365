@@ -15,6 +15,7 @@ class AttendancePolicyTest {
         val friday = LocalDate.parse("2026-10-16")
         assertTrue(AttendancePolicy.isWeeklyOff(friday, offDays))
         assertEquals(AttendanceDayStatus.PAID_WEEKLY_OFF, AttendancePolicy.status(friday, offDays, emptySet(), LocalDate.parse("2026-10-17")))
+        assertEquals(AttendanceDayStatus.PAID_WEEKLY_OFF, AttendancePolicy.status(friday, offDays, setOf(friday), LocalDate.parse("2026-10-17")))
         assertEquals(0, AttendancePolicy.absentDaysForMonth(YearMonth.of(2026, 10), offDays, setOf(friday)))
     }
 
