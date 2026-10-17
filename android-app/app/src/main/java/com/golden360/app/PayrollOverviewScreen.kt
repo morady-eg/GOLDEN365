@@ -1,5 +1,9 @@
 package com.golden360.app
 
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -45,6 +49,16 @@ internal fun PayrollOverviewScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshToken by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    var pendingReport by remember { mutableStateOf<Pair<String, List<PayrollReportEmployee>>?>(null) }
+    val monthlyPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val report = pendingReport
+        if (uri != null && report != null) {
+            runCatching { PayrollReportPdf.writeMonthly(context, uri, report.first, report.second) }
+                .onFailure { error = "تعذر إنشاء كشف الرواتب PDF: ${it.message ?: "خطأ غير معروف"}" }
+        }
+        pendingReport = null
+    }
 
     LaunchedEffect(employees, month, refreshToken) {
         loading = true
@@ -134,6 +148,32 @@ internal fun PayrollOverviewScreen(
                 HorizontalDivider(color = Color(0xFF4A3D24))
                 AmountLine("صافي المستحقات", totals.netSalaryPiasters, emphasis = true)
             }
+        }
+        Button(
+            onClick = {
+                pendingReport = month.toString() to rows.map { row ->
+                    PayrollReportEmployee(
+                        name = row.employee.fullName,
+                        code = row.employee.code,
+                        jobTitle = row.employee.jobTitle,
+                        baseSalary = row.totals.baseSalaryPiasters,
+                        overtime = row.totals.overtimePiasters + row.totals.bonusesPiasters,
+                        absenceDeduction = row.totals.absenceDeductionPiasters,
+                        advances = row.totals.advancesPiasters,
+                        penalties = row.totals.penaltiesPiasters,
+                        netSalary = row.totals.netSalaryPiasters
+                    )
+                }
+                monthlyPdfLauncher.launch("كشف_الرواتب_${month}.pdf")
+            },
+            enabled = !loading && error == null && rows.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+        ) {
+            Icon(Icons.Default.ReceiptLong, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("تصدير كشف الرواتب المجمّع PDF", fontWeight = FontWeight.Bold)
         }
         Button(onClick = { onOpenTransactions(TransactionType.ADVANCE, null, month.toString()) }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)) {
             Icon(Icons.Default.ReceiptLong, contentDescription = null)
