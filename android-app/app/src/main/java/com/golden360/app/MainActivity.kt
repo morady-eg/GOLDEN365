@@ -51,6 +51,7 @@ import com.golden360.app.data.EmployeeDatabase
 import com.golden360.app.data.EmployeeDraft
 import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.EmployeeValidator
+import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PayrollDatabase
 import com.golden360.app.data.JobTitle
 import kotlinx.coroutines.launch
@@ -598,6 +599,8 @@ private fun EmployeeFormScreen(
     var phone by remember(employee?.id) { mutableStateOf(employee?.phone.orEmpty()) }
     var shiftRate by remember(employee?.id) { mutableStateOf(employee?.extraShiftRatePiasters?.let { formatMoney(it) }.orEmpty()) }
     var baseSalary by remember(employee?.id) { mutableStateOf(employee?.baseSalaryPiasters?.let { formatMoney(it) }.orEmpty()) }
+    var shiftStartTime by remember(employee?.id) { mutableStateOf(employee?.shiftStartTime ?: "08:00") }
+    var weeklyOffDays by remember(employee?.id) { mutableStateOf(AttendancePolicy.parseWeeklyOffDays(employee?.weeklyOffDays.orEmpty())) }
     var profilePhoto by remember(employee?.id) { mutableStateOf(employee?.profilePhotoUri) }
     var idFront by remember(employee?.id) { mutableStateOf(employee?.nationalIdFrontUri) }
     var idBack by remember(employee?.id) { mutableStateOf(employee?.nationalIdBackUri) }
@@ -660,13 +663,45 @@ private fun EmployeeFormScreen(
             AttachmentRow("الصورة الشخصية", profilePhoto != null, if (profilePhoto == null) "اختر صورة" else "تغيير") { profilePicker.launch(arrayOf("image/*")) }
             AttachmentRow("بطاقة الرقم القومي — الوجه الأمامي", idFront != null, if (idFront == null) "اختر صورة" else "تغيير") { frontPicker.launch(arrayOf("image/*")) }
             AttachmentRow("بطاقة الرقم القومي — الوجه الخلفي", idBack != null, if (idBack == null) "اختر صورة" else "تغيير") { backPicker.launch(arrayOf("image/*")) }
+            SectionTitle("مواعيد الوردية والإجازة الأسبوعية")
+            Text("يُفترض الحضور تلقائيًا في يوم العمل ما لم تسجّل غيابًا يدويًا. لا يلزم تسجيل الانصراف.", color = Muted, fontSize = 12.sp)
+            GoldenField("موعد بداية الوردية *", shiftStartTime, { shiftStartTime = it; errors = errors - "shiftStartTime" }, errors["shiftStartTime"], "مثال: 08:00")
+            Text("حدد أيام الإجازة الأسبوعية المدفوعة (لن يُخصم عنها أي مبلغ):", color = Color.White, fontSize = 13.sp)
+            val weekdays = listOf(
+                java.time.DayOfWeek.SATURDAY to "السبت",
+                java.time.DayOfWeek.SUNDAY to "الأحد",
+                java.time.DayOfWeek.MONDAY to "الإثنين",
+                java.time.DayOfWeek.TUESDAY to "الثلاثاء",
+                java.time.DayOfWeek.WEDNESDAY to "الأربعاء",
+                java.time.DayOfWeek.THURSDAY to "الخميس",
+                java.time.DayOfWeek.FRIDAY to "الجمعة"
+            )
+            weekdays.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { (day, label) ->
+                        Row(Modifier.weight(1f).clickable {
+                            weeklyOffDays = if (day in weeklyOffDays) weeklyOffDays - day else weeklyOffDays + day
+                        }, verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = day in weeklyOffDays,
+                                onCheckedChange = { checked ->
+                                    weeklyOffDays = if (checked) weeklyOffDays + day else weeklyOffDays - day
+                                },
+                                colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
+                            )
+                            Text(label, color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
             SectionTitle("بيانات الأجر")
             GoldenField("الراتب الأساسي الشهري بالجنيه *", baseSalary, { baseSalary = it; errors = errors - "baseSalary" }, errors["baseSalary"], "مثال: 8000", KeyboardType.Decimal)
             GoldenField("سعر الوردية الإضافية بالجنيه *", shiftRate, { shiftRate = it; errors = errors - "extraShiftRate" }, errors["extraShiftRate"], "مثال: 250", KeyboardType.Decimal)
             Button(
                 enabled = !saving,
                 onClick = {
-                    val draft = EmployeeDraft(fullName = name, phone = phone, jobTitle = job, hireDate = hireDate, nationalId = nationalId, address = address, profilePhotoUri = profilePhoto, nationalIdFrontUri = idFront, nationalIdBackUri = idBack, extraShiftRate = shiftRate, baseSalary = baseSalary)
+                    val draft = EmployeeDraft(fullName = name, phone = phone, jobTitle = job, hireDate = hireDate, nationalId = nationalId, address = address, profilePhotoUri = profilePhoto, nationalIdFrontUri = idFront, nationalIdBackUri = idBack, extraShiftRate = shiftRate, baseSalary = baseSalary, shiftStartTime = shiftStartTime, weeklyOffDays = weeklyOffDays)
                     val result = EmployeeValidator.validate(draft)
                     errors = result.errors
                     if (result.isValid) {
