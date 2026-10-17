@@ -262,11 +262,7 @@ private fun Golden360App(dao: EmployeeDao) {
                 onBack = { showIdCard = false; selectedIdEmployee = null; selectedIdEmployees = emptyList() }
             )
             activeTab == "employees" -> EmployeeListScreen(
-                employees = employees.filter {
-                    searchQuery.isBlank() ||
-                    it.fullName.contains(searchQuery.trim(), ignoreCase = true) ||
-                    it.code.contains(searchQuery.trim(), ignoreCase = true)
-                },
+                employees = employees,
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onEdit = { editing = it; showForm = true },
