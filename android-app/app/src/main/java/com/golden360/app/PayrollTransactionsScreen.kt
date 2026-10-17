@@ -51,6 +51,7 @@ internal fun PayrollTransactionsScreen(
     var note by remember { mutableStateOf("") }
     var overtimePlace by remember { mutableStateOf("") }
     var overtimeDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var overtimeDatePickerOpen by remember { mutableStateOf(false) }
     var overtimeTime by remember { mutableStateOf("") }
     var absentDays by remember { mutableStateOf("0") }
     var monthlyTotals by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
@@ -205,7 +206,44 @@ internal fun PayrollTransactionsScreen(
                     }
                 }
                 GoldenField("مكان الوردية الإضافية", overtimePlace, { overtimePlace = it; savedReference = null }, KeyboardType.Text)
-                GoldenField("تاريخ الوردية (YYYY-MM-DD)", overtimeDate, { overtimeDate = it; savedReference = null }, KeyboardType.Ascii)
+                OutlinedTextField(
+                    value = overtimeDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("تاريخ الوردية") },
+                    trailingIcon = {
+                        IconButton(onClick = { overtimeDatePickerOpen = true }) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = "اختيار التاريخ", tint = SoftGold)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = fieldColors()
+                )
+                if (overtimeDatePickerOpen) {
+                    val initialDateMillis = runCatching {
+                        java.time.LocalDate.parse(overtimeDate).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                    }.getOrDefault(java.time.LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+                    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+                    DatePickerDialog(
+                        onDismissRequest = { overtimeDatePickerOpen = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    overtimeDate = java.time.Instant.ofEpochMilli(millis)
+                                        .atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+                                    savedReference = null
+                                }
+                                overtimeDatePickerOpen = false
+                            }) { Text("تأكيد", color = SoftGold) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { overtimeDatePickerOpen = false }) { Text("إلغاء", color = Muted) }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
                 GoldenField("موعد الوردية", overtimeTime, { overtimeTime = it; savedReference = null }, KeyboardType.Text)
                 Surface(color = Panel, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF4A3D24))) {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
