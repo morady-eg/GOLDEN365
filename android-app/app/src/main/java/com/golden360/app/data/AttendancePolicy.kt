@@ -37,7 +37,7 @@ object AttendancePolicy {
 
     /** Stores suspension intervals as start|end; an empty end means still suspended. End dates are exclusive. */
     fun startSuspension(history: String, startDate: LocalDate): String {
-        require(history.split(";").none { it.substringAfter("|", "").isEmpty() }) {
+        require(history.split(";").filter { it.isNotBlank() }.none { it.substringAfter("|", "").isEmpty() }) {
             "يوجد إيقاف مؤقت مفتوح بالفعل"
         }
         val lastEnd = history.split(";").lastOrNull()?.substringAfter("|", "")?.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
