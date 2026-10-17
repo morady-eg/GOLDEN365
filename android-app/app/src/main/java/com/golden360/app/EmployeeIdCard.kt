@@ -18,6 +18,7 @@ import android.print.PrintManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.JobTitle
 import com.google.zxing.BarcodeFormat
@@ -76,7 +76,7 @@ internal fun EmployeeIdCardScreen(
         value = withContext(Dispatchers.IO) {
             employee.profilePhotoUri?.let { uriText ->
                 runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(uriText))?.use(BitmapFactory::decodeStream)
+                    context.contentResolver.openInputStream(Uri.parse(uriText))?.use { stream -> BitmapFactory.decodeStream(stream) }
                 }.getOrNull()
             }
         }
@@ -95,7 +95,7 @@ internal fun EmployeeIdCardScreen(
             Text("بطاقة هوية الموظف", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         Surface(
-            modifier = Modifier.weight(1f, fill = false).fillMaxWidth(0.78f),
+            modifier = Modifier.weight(1f, fill = false).fillMaxWidth(0.78f).aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
             color = Color.White,
             shape = RoundedCornerShape(12.dp),
             shadowElevation = 8.dp
