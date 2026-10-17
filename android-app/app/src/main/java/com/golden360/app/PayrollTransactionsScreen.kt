@@ -5,6 +5,10 @@ import android.net.Uri
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -493,16 +497,49 @@ private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: Payrol
         val width = 595; val height = 842
         val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
         val canvas = page.canvas; canvas.drawColor(android.graphics.Color.WHITE)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(30,30,30); textAlign = Paint.Align.CENTER; textSize = 20f; typeface = android.graphics.Typeface.DEFAULT_BOLD }
-        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, paint)
-        paint.textSize = 16f; canvas.drawText("Payroll Statement", width / 2f, 88f, paint)
-        paint.textAlign = Paint.Align.LEFT; paint.textSize = 12f; paint.typeface = android.graphics.Typeface.DEFAULT
-        val rows = listOf("Employee: ${snapshot.employeeName}", "Employee code: ${snapshot.employeeCode}", "Job title: ${snapshot.jobTitle}", "Payroll month: ${snapshot.monthKey}", "Base salary: ${formatMoney(snapshot.baseSalaryPiasters)} EGP", "Absence days: ${snapshot.absentDays}", "Absence deduction: ${formatMoney(snapshot.absenceDeductionPiasters)} EGP", "Advances: ${formatMoney(snapshot.advancesPiasters)} EGP", "Penalties: ${formatMoney(snapshot.penaltiesPiasters)} EGP", "Overtime: ${formatMoney(snapshot.overtimePiasters)} EGP", "Bonuses: ${formatMoney(snapshot.bonusesPiasters)} EGP", "NET SALARY: ${formatMoney(snapshot.netSalaryPiasters)} EGP", "Approved at: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}", "Saved snapshot; not recalculated automatically.")
-        var y = 140f
+        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(30, 30, 30)
+            textAlign = Paint.Align.CENTER
+            textSize = 20f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, headerPaint)
+        headerPaint.textSize = 16f
+        canvas.drawText("كشف راتب معتمد", width / 2f, 88f, headerPaint)
+        val rows = listOf(
+            "اسم الموظف: ${snapshot.employeeName}",
+            "كود الموظف: ${snapshot.employeeCode}",
+            "المسمى الوظيفي: ${snapshot.jobTitle}",
+            "شهر المرتب: ${snapshot.monthKey}",
+            "الراتب الأساسي: ${formatMoney(snapshot.baseSalaryPiasters)} ج.م",
+            "أيام الغياب: ${snapshot.absentDays}",
+            "خصم الغياب: ${formatMoney(snapshot.absenceDeductionPiasters)} ج.م",
+            "السلف: ${formatMoney(snapshot.advancesPiasters)} ج.م",
+            "الجزاءات: ${formatMoney(snapshot.penaltiesPiasters)} ج.م",
+            "الورديات الإضافية: ${formatMoney(snapshot.overtimePiasters)} ج.م",
+            "المكافآت: ${formatMoney(snapshot.bonusesPiasters)} ج.م",
+            "صافي المرتب: ${formatMoney(snapshot.netSalaryPiasters)} ج.م",
+            "تاريخ الاعتماد: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}",
+            "هذه نسخة محفوظة ولا يعاد حسابها تلقائيًا."
+        )
+        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(35, 35, 35)
+            textSize = 14f
+        }
+        var y = 122f
         rows.forEachIndexed { index, row ->
-            paint.textSize = if (index == 11) 16f else 12f; paint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            paint.color = if (index == 11) android.graphics.Color.rgb(145,105,25) else android.graphics.Color.rgb(35,35,35)
-            canvas.drawText(row.take(88), 48f, y, paint); y += if (index == 11) 38f else 32f
+            textPaint.textSize = if (index == 11) 18f else 14f
+            textPaint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            textPaint.color = if (index == 11) android.graphics.Color.rgb(145, 105, 25) else android.graphics.Color.rgb(35, 35, 35)
+            val layout = StaticLayout.Builder.obtain(row, 0, row.length, textPaint, width - 96)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .setTextDirection(TextDirectionHeuristics.RTL)
+                .build()
+            canvas.save()
+            canvas.translate(48f, y)
+            layout.draw(canvas)
+            canvas.restore()
+            y += layout.height + if (index == 11) 20f else 12f
         }
         document.finishPage(page)
         context.contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
