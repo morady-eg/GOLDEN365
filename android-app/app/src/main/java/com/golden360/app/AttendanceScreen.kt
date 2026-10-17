@@ -206,7 +206,7 @@ internal fun AttendanceScreen(
                                         else -> Muted
                                     }, fontSize = 11.sp)
                                 }
-                                if (status != AttendanceDayStatus.NOT_YET_HIRED &&
+                                if ((status != AttendanceDayStatus.NOT_YET_HIRED || date in absentDates) &&
                                     (status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) &&
                                     !date.isAfter(today) &&
                                     (date in absentDates || status != AttendanceDayStatus.SCHEDULED)) {
