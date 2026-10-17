@@ -524,7 +524,7 @@ private fun EmployeeListScreen(
                     Text(if (visibleEmployees.isNotEmpty() && selectedEmployeeIds.containsAll(visibleEmployees.map { it.id })) "إلغاء تحديد الظاهر" else "تحديد الكل", color = SoftGold)
                 }
                 Spacer(Modifier.weight(1f))
-                Button(enabled = selectedEmployeeIds.isNotEmpty(), onClick = { onPrintIds(visibleEmployees.filter { it.id in selectedEmployeeIds }) }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black), shape = RoundedCornerShape(12.dp)) {
+                Button(enabled = selectedEmployeeIds.isNotEmpty(), onClick = { onPrintIds(employees.filter { it.id in selectedEmployeeIds }) }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black), shape = RoundedCornerShape(12.dp)) {
                     Icon(Icons.Default.Print, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("طباعة المحدد (${selectedEmployeeIds.size})")
@@ -552,12 +552,15 @@ private fun EmployeeListScreen(
                 items(visibleEmployees, key = { it.id }) { employee ->
                     Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, if (employee.id in selectedEmployeeIds) Gold else Color(0xFF403625)), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Checkbox(checked = employee.id in selectedEmployeeIds, onCheckedChange = { checked -> selectedEmployeeIds = if (checked) selectedEmployeeIds + employee.id else selectedEmployeeIds - employee.id }, colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black))
-                            Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Checkbox(
+                                checked = employee.id in selectedEmployeeIds,
+                                onCheckedChange = { checked -> selectedEmployeeIds = if (checked) selectedEmployeeIds + employee.id else selectedEmployeeIds - employee.id },
+                                colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
+                            )
                             Box(Modifier.size(48.dp).background(Color(0xFF302719), CircleShape), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Badge, contentDescription = null, tint = SoftGold, modifier = Modifier.size(24.dp))
                             }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(employee.fullName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text("${employee.code} • " + (JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle), color = SoftGold, fontSize = 11.sp)
                                 Text("الراتب الأساسي  ${formatMoney(employee.baseSalaryPiasters)} ج.م", color = Muted, fontSize = 12.sp)
