@@ -511,11 +511,11 @@ internal fun PayrollTransactionsScreen(
                 }
                 if (auditEvents.size > 20) Text("يُعرض أحدث 20 حدثًا من أصل ${auditEvents.size}.", color = Muted, fontSize = 11.sp)
             }
-@Composable
         }
     }
 }
 
+@Composable
 private fun GoldenField(label: String, value: String, onValueChange: (String) -> Unit, keyboardType: KeyboardType) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange, label = { Text(label) },
