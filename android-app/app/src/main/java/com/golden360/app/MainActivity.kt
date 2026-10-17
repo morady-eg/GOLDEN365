@@ -549,7 +549,7 @@ private fun BackupRestoreScreen(
                     snackbar.showSnackbar("تم إنشاء النسخة الاحتياطية المشفرة بنجاح")
                     onFinished()
                 }.onFailure {
-                    snackbar.showSnackbar("تعذر إنشاء النسخة: \${it.message ?: "خطأ غير معروف"}")
+                    snackbar.showSnackbar("تعذر إنشاء النسخة: ${it.message ?: "خطأ غير معروف"}")
                 }
             }
         }
@@ -588,7 +588,7 @@ private fun BackupRestoreScreen(
                     snackbar.showSnackbar("تمت استعادة النسخة والتحقق من سلامة قواعد البيانات")
                     onFinished()
                 }.onFailure {
-                    snackbar.showSnackbar("لم تتم الاستعادة: \${it.message ?: "تعذر التحقق من النسخة"}")
+                    snackbar.showSnackbar("لم تتم الاستعادة: ${it.message ?: "تعذر التحقق من النسخة"}")
                 }
             }
         }
