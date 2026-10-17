@@ -57,3 +57,12 @@ jobs:
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload unsigned release APK for QA only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GOLDEN-360-release-unsigned-QA-only
+          path: android-app/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: ignore
+          retention-days: 14
