@@ -100,6 +100,7 @@ interface EmployeeDao {
         update(
             old.copy(
                 fullName = draft.fullName.trim(),
+                phone = draft.phone.trim(),
                 jobTitle = requireNotNull(draft.jobTitle).name,
                 hireDate = draft.hireDate.trim().ifEmpty { null },
                 nationalId = draft.nationalId.trim().ifEmpty { null },
