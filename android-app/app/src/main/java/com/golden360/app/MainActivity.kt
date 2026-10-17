@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -132,6 +133,7 @@ private fun Golden360App(dao: EmployeeDao) {
                                     "advances" -> "السلف المالية"
                                     "penalties" -> "الجزاءات"
                                     "more" -> "المزيد من الخدمات"
+                                    "attendance" -> "الحضور والغياب"
                                     else -> "إدارة الرواتب والموارد البشرية"
                                 },
                                 color = Muted, fontSize = 11.sp
@@ -173,6 +175,7 @@ private fun Golden360App(dao: EmployeeDao) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
                         Triple("employees", "الموظفون", Icons.Default.People),
+                        Triple("attendance", "الحضور", Icons.Default.DateRange),
                         Triple("payroll", "الرواتب", Icons.Default.ReceiptLong),
                         Triple("more", "المزيد", Icons.Default.MoreHoriz)
                     )
@@ -241,6 +244,11 @@ private fun Golden360App(dao: EmployeeDao) {
                 searchMode = searchMode,
                 query = searchQuery,
                 onQueryChange = { searchQuery = it }
+            )
+            activeTab == "attendance" -> AttendanceScreen(
+                employees = employees,
+                dao = PayrollDatabase.get(LocalContext.current).transactions(),
+                modifier = Modifier.padding(padding)
             )
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
