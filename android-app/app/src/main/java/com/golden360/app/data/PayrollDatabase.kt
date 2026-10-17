@@ -346,6 +346,12 @@ abstract class PayrollDatabase : RoomDatabase() {
 
         @Volatile private var instance: PayrollDatabase? = null
 
+        @Synchronized
+        internal fun closeForBackup() {
+            instance?.close()
+            instance = null
+        }
+
         fun get(context: Context): PayrollDatabase = instance ?: synchronized(this) {
             instance ?: run {
                 val passphrase = DatabaseEncryption.prepareEncryptedDatabase(context.applicationContext, "golden360_payroll.db")
