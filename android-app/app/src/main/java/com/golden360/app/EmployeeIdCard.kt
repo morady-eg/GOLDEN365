@@ -80,11 +80,11 @@ internal fun EmployeeIdCardScreen(
     val employee = employees.first()
     val photo = produceState<Bitmap?>(initialValue = null, employee.profilePhotoUri) {
         value = withContext(Dispatchers.IO) {
-            employee.profilePhotoUri?.let { uriText ->
-                runCatching {
-decodeSampledBitmap(context, Uri.parse(uriText), 360, 360)
-                }.getOrNull()
-            }
+            employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uriText ->
+                runCatching { decodeSampledBitmap(context, Uri.parse(uriText), 360, 360) }.getOrNull()
+            } ?: runCatching {
+                BitmapFactory.decodeResource(context.resources, R.drawable.golden)
+            }.getOrNull()
         }
     }.value
     val qr = produceState<Bitmap?>(initialValue = null, employee.code) {
@@ -125,9 +125,7 @@ decodeSampledBitmap(context, Uri.parse(uriText), 360, 360)
                     contentAlignment = Alignment.Center
                 ) {
                     if (photo != null) {
-                        Image(photo.asImageBitmap(), contentDescription = "الصورة الشخصية للموظف", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    } else {
-                        Text("بدون صورة", color = Color.DarkGray, fontSize = 12.sp)
+                        Image(photo.asImageBitmap(), contentDescription = if (employee.profilePhotoUri.isNullOrBlank()) "الصورة الافتراضية للموظف" else "الصورة الشخصية للموظف", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     }
                 }
                 Text(employee.fullName, color = Color(0xFF151515), fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
@@ -294,9 +292,11 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = android.graphics.Color.rgb(232, 229, 221)
     canvas.drawRoundRect(photoRect, 4f, 4f, paint)
 
-    val photo = employee.profilePhotoUri?.let { uri ->
+    val photo = employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uri ->
         runCatching { decodeSampledBitmap(context, Uri.parse(uri), 640, 640) }.getOrNull()
-    }
+    } ?: runCatching {
+        BitmapFactory.decodeResource(context.resources, R.drawable.golden)
+    }.getOrNull()
     if (photo != null) {
         canvas.save()
         val path = android.graphics.Path().apply {
