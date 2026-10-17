@@ -1,6 +1,7 @@
 package com.golden360.app.data
 
 import android.content.Context
+import net.sqlcipher.database.SupportFactory
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.migration.Migration
@@ -159,11 +160,15 @@ abstract class PayrollDatabase : RoomDatabase() {
         @Volatile private var instance: PayrollDatabase? = null
 
         fun get(context: Context): PayrollDatabase = instance ?: synchronized(this) {
-            instance ?: Room.databaseBuilder(
-                context.applicationContext,
-                PayrollDatabase::class.java,
-                "golden360_payroll.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+            instance ?: run {
+                val passphrase = DatabaseEncryption.prepareEncryptedDatabase(context.applicationContext, "golden360_payroll.db")
+                Room.databaseBuilder(
+                    context.applicationContext,
+                    PayrollDatabase::class.java,
+                    "golden360_payroll.db"
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .build().also { instance = it }
+            }
         }
     }
 }
