@@ -451,6 +451,31 @@ internal fun PayrollTransactionsScreen(
                         if (com.golden360.app.data.PayrollPolicy.requiresManualReview(payrollSummary.netSalaryPiasters)) {
                             Text("تنبيه: صافي المرتب سالب. لم يتم تصفيره تلقائيًا؛ يجب مراجعة المديونية والخصومات يدويًا قبل الصرف.", color = Color(0xFFFF8A80), fontSize = 12.sp)
                         }
+                        OutlinedButton(
+                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && ((absentDays.toIntOrNull() ?: -1) in 0..30),
+                            onClick = {
+                                val employee = selectedEmployee!!
+                                pendingPayrollSnapshot = approvedSnapshot ?: PayrollSnapshotEntity(
+                                    employeeId = employee.id,
+                                    monthKey = month,
+                                    employeeName = employee.fullName,
+                                    employeeCode = employee.code,
+                                    jobTitle = employee.jobTitle,
+                                    baseSalaryPiasters = employee.baseSalaryPiasters,
+                                    absentDays = absentDays.toInt(),
+                                    absenceDeductionPiasters = payrollSummary.absenceDeductionPiasters,
+                                    advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                    penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                    overtimePiasters = payrollSummary.overtimePayPiasters,
+                                    bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                    netSalaryPiasters = payrollSummary.netSalaryPiasters,
+                                    approvedAtEpochMillis = System.currentTimeMillis()
+                                )
+                                sharePayrollPdfAfterSave = true
+                                payrollPdfLauncher.launch("كشف_راتب_${employee.code}_${month}.pdf")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("مشاركة كشف الراتب PDF") }
                         if (approvedSnapshot == null) {
                             Button(
                                 enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && ((absentDays.toIntOrNull() ?: -1) in 0..30),
