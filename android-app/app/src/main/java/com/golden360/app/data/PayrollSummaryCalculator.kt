@@ -29,3 +29,11 @@ object PayrollSummaryCalculator {
         )
     }
 }
+
+/**
+ * Payroll policy: never silently clamp an employee's net salary to zero.
+ * A negative result is preserved as a balance requiring manual review before payment.
+ */
+object PayrollPolicy {
+    fun requiresManualReview(netSalaryPiasters: Long): Boolean = netSalaryPiasters < 0L
+}
