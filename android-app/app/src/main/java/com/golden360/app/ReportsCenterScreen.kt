@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.EmployeeEntity
+import com.golden360.app.data.EmployeeDatabase
 import com.golden360.app.data.PayrollSummaryCalculator
 import com.golden360.app.data.PayrollTransactionDao
 import com.golden360.app.data.TransactionType
@@ -134,7 +135,8 @@ internal fun ReportsCenterScreen(
                 "اكتب الشهر بصيغة صحيحة مثل 2026-10"
             }
             val report = withContext(Dispatchers.IO) {
-                buildReportPayload(employees, dao, month, selectedKind)
+                val allEmployees = EmployeeDatabase.get(context).employeeDao().getAllEmployees()
+                buildReportPayload(allEmployees, dao, month, selectedKind)
             }
             payload = report
         } catch (failure: Exception) {
