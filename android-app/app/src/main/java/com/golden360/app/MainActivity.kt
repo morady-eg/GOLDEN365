@@ -88,6 +88,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var showPayroll by remember { mutableStateOf(false) }
     var showIdCard by remember { mutableStateOf(false) }
     var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
+    var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
     var activeTab by remember { mutableStateOf("home") }
     var loading by remember { mutableStateOf(true) }
@@ -220,9 +221,9 @@ private fun Golden360App(dao: EmployeeDao) {
                 onBack = { showPayroll = false },
                 initialType = selectedType
             )
-            showIdCard && selectedIdEmployee != null -> EmployeeIdCardScreen(
-                employee = requireNotNull(selectedIdEmployee),
-                onBack = { showIdCard = false; selectedIdEmployee = null }
+            showIdCard && selectedIdEmployees.isNotEmpty() -> EmployeeIdCardScreen(
+                employees = selectedIdEmployees,
+                onBack = { showIdCard = false; selectedIdEmployee = null; selectedIdEmployees = emptyList() }
             )
             activeTab == "employees" -> EmployeeListScreen(
                 employees = employees.filter {
@@ -233,7 +234,8 @@ private fun Golden360App(dao: EmployeeDao) {
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onEdit = { editing = it; showForm = true },
-                onPrintId = { selectedIdEmployee = it; showIdCard = true },
+                onPrintId = { selectedIdEmployee = it; selectedIdEmployees = listOf(it); showIdCard = true },
+                onPrintIds = { selectedIdEmployees = it; selectedIdEmployee = it.firstOrNull(); showIdCard = it.isNotEmpty() },
                 onRefresh = { scope.launch { runCatching { refresh() }.onFailure { snackbar.showSnackbar("تعذر تحديث القائمة") } } },
                 searchMode = searchMode,
                 query = searchQuery,
@@ -488,11 +490,14 @@ private fun EmployeeListScreen(
     modifier: Modifier = Modifier,
     onEdit: (EmployeeEntity) -> Unit,
     onPrintId: (EmployeeEntity) -> Unit,
+    onPrintIds: (List<EmployeeEntity>) -> Unit,
     onRefresh: () -> Unit,
     searchMode: Boolean = false,
     query: String = "",
     onQueryChange: (String) -> Unit = {}
 ) {
+    var selectedEmployeeIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val visibleEmployees = employees.filter { query.isBlank() || it.fullName.contains(query, true) || it.code.contains(query, true) }
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -509,6 +514,22 @@ private fun EmployeeListScreen(
             OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("ابحث بالاسم أو كود الموظف") }, singleLine = true,
                 shape = RoundedCornerShape(14.dp), colors = fieldColors())
+        }
+        if (visibleEmployees.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = {
+                    val visibleIds = visibleEmployees.map { it.id }.toSet()
+                    selectedEmployeeIds = if (selectedEmployeeIds.containsAll(visibleIds)) selectedEmployeeIds - visibleIds else selectedEmployeeIds + visibleIds
+                }) {
+                    Text(if (visibleEmployees.isNotEmpty() && selectedEmployeeIds.containsAll(visibleEmployees.map { it.id })) "إلغاء تحديد الظاهر" else "تحديد الكل", color = SoftGold)
+                }
+                Spacer(Modifier.weight(1f))
+                Button(enabled = selectedEmployeeIds.isNotEmpty(), onClick = { onPrintIds(visibleEmployees.filter { it.id in selectedEmployeeIds }) }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Print, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("طباعة المحدد (${selectedEmployeeIds.size})")
+                }
+            }
         }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Gold) }
@@ -528,9 +549,11 @@ private fun EmployeeListScreen(
                 }
             }
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 88.dp)) {
-                items(employees.filter { query.isBlank() || it.fullName.contains(query, true) || it.code.contains(query, true) }, key = { it.id }) { employee ->
-                    Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Color(0xFF403625)), modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.clickable { onEdit(employee) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(visibleEmployees, key = { it.id }) { employee ->
+                    Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, if (employee.id in selectedEmployeeIds) Gold else Color(0xFF403625)), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Checkbox(checked = employee.id in selectedEmployeeIds, onCheckedChange = { checked -> selectedEmployeeIds = if (checked) selectedEmployeeIds + employee.id else selectedEmployeeIds - employee.id }, colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black))
+                            Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(Modifier.size(48.dp).background(Color(0xFF302719), CircleShape), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Badge, contentDescription = null, tint = SoftGold, modifier = Modifier.size(24.dp))
                             }
@@ -539,9 +562,9 @@ private fun EmployeeListScreen(
                                 Text("${employee.code} • " + (JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle), color = SoftGold, fontSize = 11.sp)
                                 Text("الراتب الأساسي  ${formatMoney(employee.baseSalaryPiasters)} ج.م", color = Muted, fontSize = 12.sp)
                             }
-                            Icon(Icons.Default.Edit, contentDescription = "تعديل الموظف", tint = Gold)
-                            androidx.compose.material3.IconButton(onClick = { onPrintId(employee) }) {
-                                Icon(Icons.Default.Print, contentDescription = "طباعة بطاقة الموظف", tint = Gold)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(onClick = { onEdit(employee) }) { Icon(Icons.Default.Edit, contentDescription = "تعديل الموظف", tint = Gold) }
+                                IconButton(onClick = { onPrintId(employee) }) { Icon(Icons.Default.Print, contentDescription = "طباعة بطاقة الموظف", tint = Gold) }
                             }
                         }
                     }
