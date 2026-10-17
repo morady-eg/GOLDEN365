@@ -53,7 +53,7 @@ data class DailyAbsenceEntity(
 )
 
 @Entity(tableName = "monthly_attendance", primaryKeys = ["employeeId", "monthKey"])
-data class MonthlyAttendanceEntity(val employeeId: Long, val monthKey: String, val absentDays: Int)
+data class MonthlyAttendanceEntity(val employeeId: Long, val monthKey: String, val absentDays: Int, @ColumnInfo(defaultValue = "0") val legacyAbsentDays: Int = 0)
 
 @Entity(tableName = "payroll_snapshots", primaryKeys = ["employeeId", "monthKey"])
 data class PayrollSnapshotEntity(
@@ -136,7 +136,9 @@ interface PayrollTransactionDao {
             deleteDailyAbsence(employeeId, dateKey)
         }
         val allAbsences = getDailyAbsences(employeeId, monthKey)
-        upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, allAbsences.size))
+        val previousMonthlyAttendance = getAttendance(employeeId, monthKey)
+        val legacyDays = previousMonthlyAttendance?.legacyAbsentDays ?: 0
+        upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, legacyDays + allAbsences.size, legacyDays))
         if ((absent && previous == null) || (!absent && previous != null)) {
             insertAuditEvent(
                 PayrollAuditEventEntity(
@@ -293,6 +295,8 @@ abstract class PayrollDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS daily_absences (employeeId INTEGER NOT NULL, dateKey TEXT NOT NULL, monthKey TEXT NOT NULL, markedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(employeeId, dateKey))")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_daily_absences_employeeId_monthKey ON daily_absences(employeeId, monthKey)")
+                database.execSQL("ALTER TABLE monthly_attendance ADD COLUMN legacyAbsentDays INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("UPDATE monthly_attendance SET legacyAbsentDays = absentDays")
             }
         }
 
