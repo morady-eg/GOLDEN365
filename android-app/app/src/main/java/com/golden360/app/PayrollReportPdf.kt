@@ -99,7 +99,8 @@ internal object PayrollReportPdf {
                 y = rowBottom
             }
             val netTop = tableBottom + 14f
-            canvas.drawRoundRect(RectF(margin, netTop, right, netTop + 62f), 9f, 9f, paint(paleGold, 1f, false, gold))
+            canvas.drawRoundRect(RectF(margin, netTop, right, netTop + 62f), 9f, 9f, paint(paleGold))
+            canvas.drawRoundRect(RectF(margin, netTop, right, netTop + 62f), 9f, 9f, paint(gold, 1f, false, gold))
             drawRtl(canvas, "صافي الراتب المستحق", right - 16f, netTop + 24f, 240f, paint(black, 12f, true))
             val netPaint = paint(if (snapshot.netSalaryPiasters < 0) red else gold, 20f, true).apply { textAlign = Paint.Align.LEFT }
             canvas.drawText("${money(snapshot.netSalaryPiasters)} ج.م", margin + 16f, netTop + 43f, netPaint)
@@ -192,7 +193,8 @@ internal object PayrollReportPdf {
                         money(employees.sumOf { it.penalties }),
                         money(employees.fold(0L) { total, item -> Math.addExact(total, item.netSalary) })
                     )
-                    canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(paleGold, 1f, false, gold))
+                    canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(paleGold))
+                    canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(gold, 1f, false, gold))
                     var totalX = margin
                     totalValues.forEachIndexed { i, value ->
                         drawCell(canvas, value, totalX, totalTop, columns[i], 30f, paint(if (i == totalValues.lastIndex) gold else black, 8.5f, true), i == 0)
