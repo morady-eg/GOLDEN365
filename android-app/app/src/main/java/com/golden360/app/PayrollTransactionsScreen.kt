@@ -169,6 +169,7 @@ internal fun PayrollTransactionsScreen(
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
             GoldenField("أيام الغياب في الشهر (0 إلى 30)", absentDays, { absentDays = it }, KeyboardType.Number)
             if (selectedType == TransactionType.OVERTIME) {
+                GoldenField("عدد الورديات (للحساب الداخلي)", quantity, { quantity = it.filter(Char::isDigit); savedReference = null }, KeyboardType.Number)
                 GoldenField("مكان الوردية الإضافية", overtimePlace, { overtimePlace = it; savedReference = null }, KeyboardType.Text)
                 GoldenField("تاريخ الوردية (YYYY-MM-DD)", overtimeDate, { overtimeDate = it; savedReference = null }, KeyboardType.Ascii)
                 GoldenField("موعد الوردية", overtimeTime, { overtimeTime = it; savedReference = null }, KeyboardType.Text)
