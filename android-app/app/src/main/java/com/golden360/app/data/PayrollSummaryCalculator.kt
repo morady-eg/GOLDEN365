@@ -58,7 +58,7 @@ object PayrollPolicy {
             ).all { it >= 0L }
         ) { "مبالغ الخصم والإضافات لا يمكن أن تكون سالبة" }
 
-        val calculated = calculate(
+        val calculated = PayrollSummaryCalculator.calculate(
             baseSalaryPiasters = snapshot.baseSalaryPiasters,
             absentDays = snapshot.absentDays,
             penaltiesPiasters = snapshot.penaltiesPiasters,
