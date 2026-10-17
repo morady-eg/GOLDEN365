@@ -161,8 +161,7 @@ private fun Golden360App(dao: EmployeeDao) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
                         Triple("employees", "الموظفون", Icons.Default.People),
-                        Triple("advances", "السلف", Icons.Default.Payments),
-                        Triple("penalties", "الجزاءات", Icons.Default.Gavel),
+                        Triple("payroll", "الرواتب", Icons.Default.ReceiptLong),
                         Triple("more", "المزيد", Icons.Default.MoreHoriz)
                     )
                     tabs.forEach { (key, label, icon) ->
@@ -170,8 +169,7 @@ private fun Golden360App(dao: EmployeeDao) {
                             selected = activeTab == key,
                             onClick = {
                                 activeTab = key
-                                if (key == "advances") openTransactions(com.golden360.app.data.TransactionType.ADVANCE)
-                                if (key == "penalties") openTransactions(com.golden360.app.data.TransactionType.PENALTY)
+                                // الأقسام المالية تُفتح من شاشة المزيد، لتجنب تكرارها في التنقل
                             },
                             icon = { Icon(icon, contentDescription = label) },
                             label = { Text(label, fontSize = 10.sp, maxLines = 1) },
@@ -227,6 +225,10 @@ private fun Golden360App(dao: EmployeeDao) {
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
                 onOpen = { openTransactions(it) }
+            )
+            activeTab == "payroll" -> PayrollOverviewScreen(
+                modifier = Modifier.padding(padding),
+                onOpenTransactions = { openTransactions(com.golden360.app.data.TransactionType.ADVANCE) }
             )
             else -> DashboardScreen(
                 employees = employees,
@@ -320,22 +322,7 @@ private fun DashboardScreen(
                 Text("اختر إجراءً", color = Muted, fontSize = 11.sp)
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                LuxuryActionCard("السلف", "إضافة سلفة", Icons.Default.Payments, Modifier.weight(1f)) {
-                    onOpen(com.golden360.app.data.TransactionType.ADVANCE)
-                }
-                LuxuryActionCard("الجزاءات", "تسجيل جزاء", Icons.Default.Gavel, Modifier.weight(1f)) {
-                    onOpen(com.golden360.app.data.TransactionType.PENALTY)
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                LuxuryActionCard("المكافآت", "إضافة مكافأة", Icons.Default.Redeem, Modifier.weight(1f)) {
-                    onOpen(com.golden360.app.data.TransactionType.BONUS)
-                }
-                LuxuryActionCard("الورديات", "وردية إضافية", Icons.Default.AccessTime, Modifier.weight(1f)) {
-                    onOpen(com.golden360.app.data.TransactionType.OVERTIME)
-                }
-            }
+
 
             Surface(
                 color = Color(0xFF1A1711),
@@ -414,13 +401,66 @@ private fun LuxuryActionCard(
 }
 
 @Composable
+private fun PayrollOverviewScreen(
+    modifier: Modifier = Modifier,
+    onOpenTransactions: () -> Unit
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text("الرواتب", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("مراجعة الرواتب وسجل العمليات المالية من مكان واحد.", color = Muted, fontSize = 13.sp)
+        Surface(
+            color = Panel,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, Color(0xFF403625)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = SoftGold, modifier = Modifier.size(30.dp))
+                Text("سجل المعاملات المالية", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("راجع السلف والجزاءات والمكافآت والورديات الإضافية من سجل واحد.", color = Muted, fontSize = 12.sp)
+                Button(
+                    onClick = onOpenTransactions,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                ) {
+                    Text("فتح سجل المعاملات", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.ChevronLeft, contentDescription = null)
+                }
+            }
+        }
+        Text("لإضافة سلفة أو جزاء أو وردية إضافية، افتح «المزيد» ثم اختر نوع العملية.", color = Muted, fontSize = 12.sp)
+    }
+}
+
+@Composable
 private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golden360.app.data.TransactionType) -> Unit) {
-    Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("كل الخدمات", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("اختر القسم الذي تريد العمل عليه", color = Muted, fontSize = 13.sp)
-        LuxuryActionCard("المكافآت", "تسجيل ومراجعة المكافآت", Icons.Default.Redeem, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.BONUS) }
-        LuxuryActionCard("الورديات الإضافية", "حساب السعر من ملف الموظف تلقائيًا", Icons.Default.AccessTime, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.OVERTIME) }
-        LuxuryActionCard("ملخص الرواتب", "عرض صافي المرتب والخصومات والإضافات", Icons.Default.ReceiptLong, Modifier.fillMaxWidth()) { onOpen(com.golden360.app.data.TransactionType.ADVANCE) }
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("المعاملات والخدمات", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("كل عمليات الإضافة والخصم في مكان واحد، بدون تكرارها في باقي الشاشات.", color = Muted, fontSize = 13.sp)
+        SectionTitle("الإضافات المالية")
+        LuxuryActionCard("تسجيل سلفة", "إضافة سلفة لموظف ومتابعة خصمها", Icons.Default.Payments, Modifier.fillMaxWidth()) {
+            onOpen(com.golden360.app.data.TransactionType.ADVANCE)
+        }
+        LuxuryActionCard("تسجيل مكافأة", "تسجيل مبلغ إضافي للموظف", Icons.Default.Redeem, Modifier.fillMaxWidth()) {
+            onOpen(com.golden360.app.data.TransactionType.BONUS)
+        }
+        SectionTitle("الخصومات")
+        LuxuryActionCard("تسجيل جزاء", "تسجيل الخصم وربطه بالموظف", Icons.Default.Gavel, Modifier.fillMaxWidth()) {
+            onOpen(com.golden360.app.data.TransactionType.PENALTY)
+        }
+        SectionTitle("الورديات")
+        LuxuryActionCard("تسجيل وردية إضافية", "حساب المقابل حسب سعر الوردية في ملف الموظف", Icons.Default.AccessTime, Modifier.fillMaxWidth()) {
+            onOpen(com.golden360.app.data.TransactionType.OVERTIME)
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
