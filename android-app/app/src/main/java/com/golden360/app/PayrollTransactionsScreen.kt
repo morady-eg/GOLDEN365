@@ -102,10 +102,8 @@ internal fun PayrollTransactionsScreen(
                 val attendance = dao.getAttendance(employeeId, month)
                 val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
                 val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
-                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString(); approvedSnapshot = savedSnapshot
-; auditEvents = loadedAuditEvents
-            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
-            auditEvents = emptyList()
+                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString(); approvedSnapshot = savedSnapshot; auditEvents = loadedAuditEvents
+            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
         } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
 
