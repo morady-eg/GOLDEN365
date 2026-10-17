@@ -37,7 +37,10 @@ data class EmployeeEntity(
     @ColumnInfo(defaultValue = "0") val baseSalaryPiasters: Long = 0,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    @ColumnInfo(defaultValue = "'ACTIVE'") val workStatus: String = "ACTIVE",
+    val statusEffectiveDate: String? = null,
+    @ColumnInfo(defaultValue = "''") val suspensionPeriods: String = ""
 )
 
 @Entity(tableName = "employee_code_counter")
@@ -62,6 +65,48 @@ interface EmployeeDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveCounter(counter: EmployeeCodeCounter)
+
+    @Transaction
+    suspend fun suspendEmployee(id: Long, effectiveDate: String = java.time.LocalDate.now().toString()) {
+        val employee = requireNotNull(getById(id)) { "الموظف غير موجود" }
+        require(employee.workStatus == "ACTIVE") { "لا يمكن إيقاف الموظف مؤقتًا إلا إذا كان على رأس العمل" }
+        val date = java.time.LocalDate.parse(effectiveDate)
+        update(employee.copy(
+            workStatus = "SUSPENDED",
+            statusEffectiveDate = date.toString(),
+            suspensionPeriods = AttendancePolicy.startSuspension(employee.suspensionPeriods, date),
+            updatedAtEpochMillis = System.currentTimeMillis()
+        ))
+    }
+
+    @Transaction
+    suspend fun resumeEmployee(id: Long, effectiveDate: String = java.time.LocalDate.now().toString()) {
+        val employee = requireNotNull(getById(id)) { "الموظف غير موجود" }
+        require(employee.workStatus == "SUSPENDED") { "الموظف ليس موقوفًا مؤقتًا" }
+        val date = java.time.LocalDate.parse(effectiveDate)
+        update(employee.copy(
+            workStatus = "ACTIVE",
+            statusEffectiveDate = date.toString(),
+            suspensionPeriods = AttendancePolicy.endSuspension(employee.suspensionPeriods, date),
+            updatedAtEpochMillis = System.currentTimeMillis()
+        ))
+    }
+
+    @Transaction
+    suspend fun terminateEmployee(id: Long, effectiveDate: String = java.time.LocalDate.now().toString()) {
+        val employee = requireNotNull(getById(id)) { "الموظف غير موجود" }
+        require(employee.workStatus != "TERMINATED") { "تم إنهاء عمل الموظف بالفعل" }
+        val date = java.time.LocalDate.parse(effectiveDate)
+        val history = if (employee.workStatus == "SUSPENDED") {
+            AttendancePolicy.endSuspension(employee.suspensionPeriods, date)
+        } else employee.suspensionPeriods
+        update(employee.copy(
+            workStatus = "TERMINATED",
+            statusEffectiveDate = date.toString(),
+            suspensionPeriods = history,
+            updatedAtEpochMillis = System.currentTimeMillis()
+        ))
+    }
 
     @Query("SELECT * FROM employee_code_counter WHERE `key` = 1 LIMIT 1")
     suspend fun getCounter(): EmployeeCodeCounter?
@@ -126,7 +171,7 @@ interface EmployeeDao {
     }
 }
 
-@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 4, exportSchema = false)
+@Database(entities = [EmployeeEntity::class, EmployeeCodeCounter::class], version = 5, exportSchema = false)
 abstract class EmployeeDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao
 
@@ -150,6 +195,14 @@ abstract class EmployeeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE employees ADD COLUMN workStatus TEXT NOT NULL DEFAULT 'ACTIVE'")
+                database.execSQL("ALTER TABLE employees ADD COLUMN statusEffectiveDate TEXT")
+                database.execSQL("ALTER TABLE employees ADD COLUMN suspensionPeriods TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var INSTANCE: EmployeeDatabase? = null
 
         @Synchronized
@@ -165,7 +218,7 @@ abstract class EmployeeDatabase : RoomDatabase() {
                     context.applicationContext,
                     EmployeeDatabase::class.java,
                     "golden360.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { INSTANCE = it }
             }
         }
