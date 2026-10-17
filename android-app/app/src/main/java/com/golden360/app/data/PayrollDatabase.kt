@@ -226,6 +226,7 @@ interface PayrollTransactionDao {
 
     @Transaction
     suspend fun approvePayrollSnapshot(snapshot: PayrollSnapshotEntity): PayrollSnapshotEntity {
+        PayrollPolicy.validateSnapshot(snapshot)
         require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
             "كشف الراتب معتمد بالفعل لهذا الموظف والشهر"
         }
@@ -244,16 +245,8 @@ interface PayrollTransactionDao {
 
     @Transaction
     suspend fun approvePayrollSnapshots(snapshots: List<PayrollSnapshotEntity>): Int {
-        require(snapshots.isNotEmpty()) { "لا توجد كشوف جديدة للاعتماد" }
-        val monthKeys = snapshots.map { it.monthKey }.distinct()
-        require(monthKeys.size == 1 && monthKeys.single().matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
-            "يجب أن تنتمي جميع الكشوف إلى شهر واحد صحيح"
-        }
-        require(snapshots.map { it.employeeId }.distinct().size == snapshots.size) {
-            "يوجد موظف مكرر في قائمة الاعتماد"
-        }
+        PayrollPolicy.validateBatchApproval(snapshots)
         snapshots.forEach { snapshot ->
-            require(snapshot.employeeId > 0) { "معرّف الموظف غير صحيح" }
             require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
                 "كشف الراتب معتمد بالفعل لأحد الموظفين؛ حدّث الكشف وحاول مجددًا"
             }
