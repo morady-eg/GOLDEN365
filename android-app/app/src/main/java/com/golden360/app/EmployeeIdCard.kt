@@ -68,10 +68,11 @@ internal object EmployeeIdCardSpec {
 
 @Composable
 internal fun EmployeeIdCardScreen(
-    employee: EmployeeEntity,
+    employees: List<EmployeeEntity>,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val employee = employees.first()
     val photo = produceState<Bitmap?>(initialValue = null, employee.profilePhotoUri) {
         value = withContext(Dispatchers.IO) {
             employee.profilePhotoUri?.let { uriText ->
@@ -92,7 +93,7 @@ internal fun EmployeeIdCardScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
-            Text("بطاقة هوية الموظف", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "بطاقة هوية الموظف" else "معاينة طباعة ${employees.size} بطاقة", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         Surface(
             modifier = Modifier.weight(1f, fill = false).fillMaxWidth(0.78f).aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
@@ -132,13 +133,13 @@ internal fun EmployeeIdCardScreen(
         }
         Text("مقاس البطاقة: 54 × 86 مم • خلفية بيضاء", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
         Button(
-            onClick = { printEmployeeId(context, employee) },
+            onClick = { printEmployeeIds(context, employees) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
         ) {
             Icon(Icons.Default.Print, contentDescription = null)
-            Text("طباعة بطاقة الموظف", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "طباعة بطاقة الموظف" else "طباعة ${employees.size} بطاقة معًا", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
         }
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
             Text("رجوع", color = SoftGold)
@@ -160,71 +161,42 @@ private fun createEmployeeQr(code: String): Bitmap? = runCatching {
     }
 }.getOrNull()
 
-private fun printEmployeeId(context: Context, employee: EmployeeEntity) {
+internal fun employeeIdPrintPageCount(employeeCount: Int): Int = employeeCount.coerceAtLeast(0)
+
+private fun printEmployeeIds(context: Context, employees: List<EmployeeEntity>) {
+    if (employees.isEmpty()) return
     val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
     val attributes = PrintAttributes.Builder()
         .setMediaSize(PrintAttributes.MediaSize("GOLDEN_SHINE_ID", "GOLDEN SHINE ID", 2126, 3386))
         .setResolution(PrintAttributes.Resolution("GOLDEN_SHINE_ID_300", "300 dpi", 300, 300))
         .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
         .build()
-    printManager.print(
-        "GOLDEN SHINE - ${employee.code}",
-        EmployeeIdPrintAdapter(context, employee),
-        attributes
-    )
+    printManager.print("GOLDEN SHINE - ${employees.size} employee IDs", EmployeeIdPrintAdapter(context, employees), attributes)
 }
 
-private class EmployeeIdPrintAdapter(
-    private val context: Context,
-    private val employee: EmployeeEntity
-) : PrintDocumentAdapter() {
-    private var attributes: PrintAttributes? = null
-
-    override fun onLayout(
-        oldAttributes: PrintAttributes?,
-        newAttributes: PrintAttributes,
-        cancellationSignal: CancellationSignal,
-        callback: LayoutResultCallback,
-        extras: android.os.Bundle?
-    ) {
-        if (cancellationSignal.isCanceled) {
-            callback.onLayoutCancelled()
-            return
-        }
-        attributes = newAttributes
-        callback.onLayoutFinished(
-            PrintDocumentInfo.Builder("employee-${employee.code}.pdf")
-                .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                .setPageCount(1)
-                .build(),
-            oldAttributes != newAttributes
-        )
+private class EmployeeIdPrintAdapter(private val context: Context, private val employees: List<EmployeeEntity>) : PrintDocumentAdapter() {
+    override fun onLayout(oldAttributes: PrintAttributes?, newAttributes: PrintAttributes, cancellationSignal: CancellationSignal, callback: LayoutResultCallback, extras: android.os.Bundle?) {
+        if (cancellationSignal.isCanceled) { callback.onLayoutCancelled(); return }
+        callback.onLayoutFinished(PrintDocumentInfo.Builder("golden-shine-employee-ids.pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(employeeIdPrintPageCount(employees.size)).build(), oldAttributes != newAttributes)
     }
 
-    override fun onWrite(
-        pages: Array<out android.print.PageRange>,
-        destination: ParcelFileDescriptor,
-        cancellationSignal: CancellationSignal,
-        callback: WriteResultCallback
-    ) {
+    override fun onWrite(pages: Array<out android.print.PageRange>, destination: ParcelFileDescriptor, cancellationSignal: CancellationSignal, callback: WriteResultCallback) {
         val document = PdfDocument()
         try {
-            if (cancellationSignal.isCanceled) {
-                callback.onWriteCancelled()
-                return
+            val requestedPages = pages.flatMap { range -> range.start..range.end }.distinct().filter { it in employees.indices }
+            requestedPages.forEach { pageIndex ->
+                if (cancellationSignal.isCanceled) { callback.onWriteCancelled(); return }
+                val pageWidth = 153
+                val pageHeight = 244
+                val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex + 1).create())
+                drawEmployeeCard(context, page.canvas, pageWidth.toFloat(), pageHeight.toFloat(), employees[pageIndex])
+                document.finishPage(page)
             }
-            val pageWidth = 153
-            val pageHeight = 244
-            val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create())
-            drawEmployeeCard(context, page.canvas, pageWidth.toFloat(), pageHeight.toFloat(), employee)
-            document.finishPage(page)
             FileOutputStream(destination.fileDescriptor).use { document.writeTo(it) }
-            callback.onWriteFinished(arrayOf(android.print.PageRange(0, 0)))
+            callback.onWriteFinished(requestedPages.map { android.print.PageRange(it, it) }.toTypedArray())
         } catch (error: Exception) {
-            callback.onWriteFailed(error.message ?: "تعذر إنشاء بطاقة الموظف")
-        } finally {
-            document.close()
-        }
+            callback.onWriteFailed(error.message ?: "تعذر إنشاء بطاقات الموظفين")
+        } finally { document.close() }
     }
 }
 
