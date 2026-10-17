@@ -1,19 +1,26 @@
-# GOLDEN 360 — Android starter
+# Android App — GOLDEN365
 
-This folder contains an initial native Android app scaffold using Kotlin, Jetpack Compose, and Room.
+## متطلبات التطوير
+- Android Studio حديث يدعم Android Gradle Plugin 8.7.3
+- JDK 17
+- اتصال بالإنترنت لتنزيل تبعيات Gradle
 
-## Included in this starter
-- Arabic dark/black and gold employee form UI.
-- Employee model and basic validation.
-- Room database/DAO scaffold with a unique employee code index and sequential `GS_000001` codes.
-- Unit tests for validation and code formatting.
+## تشغيل الاختبارات والبناء
+من هذا المجلد:
+```bash
+gradle testDebugUnitTest
+gradle assembleDebug
+```
+ينفذ workflow في `.github/workflows/android-ci.yml` الاختبارات ويبني APK تجريبيًا.
 
-## Open the project
-Open the `android-app` directory in Android Studio. Use JDK 17 and Android SDK 35.
+## البيانات
+- تحفظ الحركات في Room داخل `golden360_payroll.db`.
+- تحفظ أيام الغياب حسب الموظف والشهر.
+- تحفظ تفاصيل مكان وتاريخ وموعد الوردية مع الحركة.
+- تحفظ نسخة كشف الراتب المعتمدة في سجل مستقل لكل موظف وشهر، وتصدر إلى PDF.
+- قاعدة الموظفين منفصلة عن قاعدة الحركات؛ لا يوجد FK عابر لقواعد البيانات.
 
-## Current limitations
-- This is an early scaffold, not a finished payroll application.
-- The form is not yet wired to persist employees through Room.
-- Attachment controls are placeholders; image picking and durable URI permissions are not implemented.
-- Employee listing/editing, advances, penalties, bonuses, overtime entries, absence calculations, and payroll reports still need implementation.
-- Android build and tests have not been run in this environment.
+## ملاحظات أمنية وتشغيلية
+- يجب إكمال سجل تدقيق تعديل/إلغاء الحركات وتحديد الصلاحيات قبل الإنتاج.
+- لا يوجد تشفير صريح لقاعدة البيانات؛ قيّم التشفير وسياسة الاحتفاظ بالبيانات قبل إدخال بيانات حقيقية.
+- اختبر الطباعة الفعلية على الجهاز والطابعة المستهدفين.
