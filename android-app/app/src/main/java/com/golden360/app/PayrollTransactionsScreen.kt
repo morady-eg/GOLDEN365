@@ -450,11 +450,15 @@ internal fun PayrollTransactionsScreen(
                         if (com.golden360.app.data.PayrollPolicy.requiresManualReview(payrollSummary.netSalaryPiasters)) {
                             Text("تنبيه: صافي المرتب سالب. لم يتم تصفيره تلقائيًا؛ يجب مراجعة المديونية والخصومات يدويًا قبل الصرف.", color = Color(0xFFFF8A80), fontSize = 12.sp)
                         }
-                        Button(
-                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
-                            onClick = { confirmPayrollApproval = true },
-                            modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
-                        ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                        if (approvedSnapshot == null) {
+                            Button(
+                                enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && ((absentDays.toIntOrNull() ?: -1) in 0..30),
+                                onClick = { confirmPayrollApproval = true },
+                                modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                            ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                        } else {
+                            Text("تم اعتماد الكشف وتثبيت أرقامه؛ لا يمكن تعديل حركات الشهر أو الغياب.", color = Color(0xFFB7D88A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                         Text("النسخة المعتمدة ثابتة ولا تتغير تلقائيًا عند تعديل ملف الموظف.", color = Muted, fontSize = 11.sp)
                     }
                 }
