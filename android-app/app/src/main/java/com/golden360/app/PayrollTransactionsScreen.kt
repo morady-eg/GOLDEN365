@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -379,6 +377,7 @@ internal fun PayrollTransactionsScreen(
                                     overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
                             }.onSuccess { reference ->
                                 savedReference = reference
+                                runCatching {
                                 val dateLabel = java.time.LocalDate.now().toString()
                                 val jobLabel = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
                                 whatsappMessage = when (selectedType) {
@@ -414,6 +413,9 @@ internal fun PayrollTransactionsScreen(
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
                                 monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
                                  auditEvents = dao.getAuditEvents(employee.id, month)
+                                }.onFailure {
+                                    error = "تم حفظ الحركة بالرقم المرجعي: ${reference}، لكن تعذر تحديث الشاشة. أعد فتح الحركات للتحقق من البيانات."
+                                }
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
                         }
@@ -475,8 +477,11 @@ internal fun PayrollTransactionsScreen(
             if (transactions.isEmpty()) {
                 Text("لا توجد حركات مسجلة لهذا الموظف في هذا الشهر.", color = Muted, fontSize = 12.sp)
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-                    items(transactions, key = { it.id }) { transaction ->
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
+                ) {
+                    transactions.forEach { transaction ->
                         Surface(
                             color = Panel,
                             shape = RoundedCornerShape(12.dp),
