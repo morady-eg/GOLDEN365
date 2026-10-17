@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.golden360.app.data.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.util.Locale
 
@@ -49,6 +50,10 @@ internal fun PayrollOverviewScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshToken by remember { mutableIntStateOf(0) }
+    var confirmBatchApproval by remember { mutableStateOf(false) }
+    var approvingBatch by remember { mutableStateOf(false) }
+    var approvalMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var pendingReport by remember { mutableStateOf<Pair<String, List<PayrollReportEmployee>>?>(null) }
     val monthlyPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -110,6 +115,8 @@ internal fun PayrollOverviewScreen(
     }
 
     val totals = remember(rows) { rows.fold(PayrollOverviewTotals()) { acc, row -> acc + row.totals } }
+    val unapprovedRows = rows.filter { !it.approved }
+    val batchHasManualReview = unapprovedRows.any { PayrollPolicy.requiresManualReview(it.totals.netSalaryPiasters) }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -148,6 +155,21 @@ internal fun PayrollOverviewScreen(
                 HorizontalDivider(color = Color(0xFF4A3D24))
                 AmountLine("صافي المستحقات", totals.netSalaryPiasters, emphasis = true)
             }
+        }
+        Button(
+            onClick = { confirmBatchApproval = true },
+            enabled = !loading && !approvingBatch && error == null && rows.isNotEmpty() && unapprovedRows.isNotEmpty() && !batchHasManualReview,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB7D88A), contentColor = Black)
+        ) {
+            Text(if (approvingBatch) "جارٍ اعتماد الكشوف..." else "اعتماد جميع الرواتب غير المعتمدة (${unapprovedRows.size})", fontWeight = FontWeight.Bold)
+        }
+        if (batchHasManualReview && unapprovedRows.isNotEmpty()) {
+            Text("لا يمكن اعتماد الدفعة: يوجد صافي راتب سالب. افتح كشف الموظف وراجعه واعتمده بشكل منفصل بعد التحقق.", color = Color(0xFFFFA39A), fontSize = 12.sp)
+        }
+        if (approvalMessage != null) {
+            Text(approvalMessage!!, color = if (approvalMessage!!.startsWith("تم")) Color(0xFFB7D88A) else Color(0xFFFFA39A), fontSize = 12.sp)
         }
         Button(
             onClick = {
@@ -210,7 +232,62 @@ internal fun PayrollOverviewScreen(
                 }
             }
         }
-        Text("الكشف غير المعتمد يتحدث مع تغيّر الحركات. بعد الاعتماد تُعرض القيم المحفوظة في لقطة الراتب.", color = Muted, fontSize = 11.sp)
+        Text("الكشف غير المعتمد يتحدث مع تغيّر الحركات. الاعتماد الجماعي يثبت كل الكشوف المحددة في معاملة قاعدة بيانات واحدة؛ لا يمكن تعديلها بعد الاعتماد.", color = Muted, fontSize = 11.sp)
+    }
+    if (confirmBatchApproval) {
+        AlertDialog(
+            onDismissRequest = { if (!approvingBatch) confirmBatchApproval = false },
+            title = { Text("تأكيد اعتماد رواتب الشهر") },
+            text = {
+                Text("سيتم تثبيت رواتب ${unapprovedRows.size} موظفًا لشهر ${month}. بعد الاعتماد ستُمنع تعديلات الحركات والغياب لهذه الكشوف. لا توجد رواتب سالبة ضمن الدفعة.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !approvingBatch,
+                    onClick = {
+                        val key = month.toString()
+                        val now = System.currentTimeMillis()
+                        val snapshots = unapprovedRows.map { row ->
+                            PayrollSnapshotEntity(
+                                employeeId = row.employee.id,
+                                monthKey = key,
+                                employeeName = row.employee.fullName,
+                                employeeCode = row.employee.code,
+                                jobTitle = row.employee.jobTitle,
+                                baseSalaryPiasters = row.totals.baseSalaryPiasters,
+                                absentDays = row.absentDays,
+                                absenceDeductionPiasters = row.totals.absenceDeductionPiasters,
+                                advancesPiasters = row.totals.advancesPiasters,
+                                penaltiesPiasters = row.totals.penaltiesPiasters,
+                                overtimePiasters = row.totals.overtimePiasters,
+                                bonusesPiasters = row.totals.bonusesPiasters,
+                                netSalaryPiasters = row.totals.netSalaryPiasters,
+                                approvedAtEpochMillis = now
+                            )
+                        }
+                        approvingBatch = true
+                        approvalMessage = null
+                        scope.launch {
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) { dao.approvePayrollSnapshots(snapshots) }
+                            }
+                            approvingBatch = false
+                            confirmBatchApproval = false
+                            result.onSuccess { count ->
+                                approvalMessage = "تم اعتماد وتثبيت كشوف $count موظفًا للشهر $key."
+                                refreshToken++
+                            }.onFailure { failure ->
+                                approvalMessage = "لم يتم اعتماد أي كشف في الدفعة: ${failure.message ?: "تعذر إتمام العملية"}"
+                                refreshToken++
+                            }
+                        }
+                    }
+                ) { Text(if (approvingBatch) "جارٍ الاعتماد…" else "تأكيد الاعتماد") }
+            },
+            dismissButton = {
+                TextButton(enabled = !approvingBatch, onClick = { confirmBatchApproval = false }) { Text("إلغاء") }
+            }
+        )
     }
 }
 
