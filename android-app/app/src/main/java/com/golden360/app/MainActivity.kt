@@ -285,13 +285,16 @@ private fun Golden360App(dao: EmployeeDao) {
                     showPayroll = true
                 }
             )
-            else -> DashboardScreen(
+            else -> ExecutiveDashboardScreen(
                 employees = employees,
+                dao = PayrollDatabase.get(LocalContext.current).transactions(),
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onAddEmployee = { editing = null; showForm = true },
                 onEmployees = { activeTab = "employees" },
-                onOpen = { openTransactions(it) }
+                onPayroll = { activeTab = "payroll" },
+                onAttendance = { activeTab = "attendance" },
+                onOpenTransaction = { openTransactions(it) }
             )
         }
     }
