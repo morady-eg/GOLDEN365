@@ -39,8 +39,8 @@ jobs:
         run: test -x ./gradlew && test -s gradle/wrapper/gradle-wrapper.jar && grep -q 'gradle-8.9-bin.zip' gradle/wrapper/gradle-wrapper.properties
       - name: Run unit tests
         run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
-      - name: Build debug APK
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Build debug and release variants
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
       - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@v4
