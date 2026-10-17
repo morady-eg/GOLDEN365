@@ -33,6 +33,12 @@ class EmployeeIdCardTest {
     }
     
     @Test
+    fun allPagesRangeDoesNotExpandAnUnboundedRange() {
+        assertEquals(listOf(0, 1, 2), employeeIdRequestedPageIndices(3, listOf(0..Int.MAX_VALUE)))
+        assertEquals(listOf(1), employeeIdRequestedPageIndices(3, listOf(1..1)))
+    }
+
+    @Test
     fun batchPrintingCreatesOnePagePerSelectedEmployee() {
         assertEquals(0, employeeIdPrintPageCount(0))
         assertEquals(1, employeeIdPrintPageCount(1))
