@@ -106,6 +106,21 @@ object AttendancePolicy {
         else -> AttendanceDayStatus.AUTOMATIC_PRESENT
     }
 
+    fun effectiveAbsenceDatesForMonth(
+        month: YearMonth,
+        weeklyOffDays: Set<DayOfWeek>,
+        absentDates: Set<LocalDate>,
+        hireDate: LocalDate? = null,
+        workStatus: String = "ACTIVE",
+        statusEffectiveDate: LocalDate? = null,
+        suspensionPeriods: String = ""
+    ): List<LocalDate> = absentDates.filter { date ->
+        YearMonth.from(date) == month &&
+            (hireDate == null || !date.isBefore(hireDate)) &&
+            !isEmployeeInactiveOn(date, workStatus, statusEffectiveDate, suspensionPeriods) &&
+            !isWeeklyOff(date, weeklyOffDays)
+    }.sorted()
+
     fun absentDaysForMonth(
         month: YearMonth,
         weeklyOffDays: Set<DayOfWeek>,
@@ -114,12 +129,9 @@ object AttendancePolicy {
         workStatus: String = "ACTIVE",
         statusEffectiveDate: LocalDate? = null,
         suspensionPeriods: String = ""
-    ): Int = absentDates.count { date ->
-        YearMonth.from(date) == month &&
-            (hireDate == null || !date.isBefore(hireDate)) &&
-            !isEmployeeInactiveOn(date, workStatus, statusEffectiveDate, suspensionPeriods) &&
-            !isWeeklyOff(date, weeklyOffDays)
-    }
+    ): Int = effectiveAbsenceDatesForMonth(
+        month, weeklyOffDays, absentDates, hireDate, workStatus, statusEffectiveDate, suspensionPeriods
+    ).size
 
     /** Legacy undated absences are retained; dated absences before employment are excluded. */
     fun effectiveAbsentDaysForMonth(
