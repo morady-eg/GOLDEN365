@@ -22,6 +22,7 @@ internal data class PayrollReportEmployee(
     val jobTitle: String,
     val baseSalary: Long,
     val overtime: Long,
+    val bonuses: Long,
     val absenceDeduction: Long,
     val advances: Long,
     val penalties: Long,
@@ -136,8 +137,8 @@ internal object PayrollReportPdf {
             val width = 842
             val height = 595
             val margin = 30f
-            val columns = listOf(160f, 100f, 100f, 100f, 100f, 100f, 122f)
-            val headers = listOf("الموظف", "الأساسي", "الإضافي", "خصم الغياب", "السلف", "الجزاءات", "صافي المستحق")
+            val columns = listOf(145f, 90f, 90f, 90f, 90f, 90f, 90f, 97f)
+            val headers = listOf("الموظف", "الأساسي", "الورديات الإضافية", "المكافآت", "خصم الغياب", "السلف", "الجزاءات", "صافي المستحق")
             val chunks = employees.chunked(8).ifEmpty { listOf(emptyList()) }
             chunks.forEachIndexed { pageIndex, chunk ->
                 val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, pageIndex + 1).create())
@@ -164,9 +165,10 @@ internal object PayrollReportPdf {
                     canvas.drawRect(margin, y, width - margin, y + rowHeight, rowPaint)
                     canvas.drawLine(margin, y + rowHeight, width - margin, y + rowHeight, paint(line, 0.8f))
                     val values = listOf(
-                        "${employee.name}\n${employee.code}",
+                        "${employee.name}\n${employee.code} • ${employee.jobTitle}",
                         money(employee.baseSalary),
                         money(employee.overtime),
+                        money(employee.bonuses),
                         money(employee.absenceDeduction),
                         money(employee.advances),
                         money(employee.penalties),
@@ -179,13 +181,24 @@ internal object PayrollReportPdf {
                     y += rowHeight
                 }
                 if (pageIndex == chunks.lastIndex) {
-                    val totalTop = maxOf(y + 9f, 425f)
-                    canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 42f), 6f, 6f, paint(paleGold, 1f, false, gold))
-                    val totalNet = employees.sumOf { it.netSalary }
-                    drawRtl(canvas, "إجمالي صافي المستحقات", width - margin - 14f, totalTop + 26f, 240f, paint(black, 11f, true))
-                    val netPaint = paint(gold, 15f, true).apply { textAlign = Paint.Align.LEFT }
-                    canvas.drawText("${money(totalNet)} ج.م", margin + 14f, totalTop + 27f, netPaint)
-                    val sigY = minOf(totalTop + 77f, 520f)
+                    val totalTop = maxOf(y + 6f, 425f)
+                    val totalValues = listOf(
+                        "الإجمالي",
+                        money(employees.sumOf { it.baseSalary }),
+                        money(employees.sumOf { it.overtime }),
+                        money(employees.sumOf { it.bonuses }),
+                        money(employees.sumOf { it.absenceDeduction }),
+                        money(employees.sumOf { it.advances }),
+                        money(employees.sumOf { it.penalties }),
+                        money(employees.fold(0L) { total, item -> Math.addExact(total, item.netSalary) })
+                    )
+                    canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(paleGold, 1f, false, gold))
+                    var totalX = margin
+                    totalValues.forEachIndexed { i, value ->
+                        drawCell(canvas, value, totalX, totalTop, columns[i], 30f, paint(if (i == totalValues.lastIndex) gold else black, 8.5f, true), i == 0)
+                        totalX += columns[i]
+                    }
+                    val sigY = 510f
                     canvas.drawLine(margin + 10f, sigY, margin + 170f, sigY, paint(line, 1.1f))
                     canvas.drawLine(width / 2f - 80f, sigY, width / 2f + 80f, sigY, paint(line, 1.1f))
                     canvas.drawLine(width - margin - 170f, sigY, width - margin - 10f, sigY, paint(line, 1.1f))
