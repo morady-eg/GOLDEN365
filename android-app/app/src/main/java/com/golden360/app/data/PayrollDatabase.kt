@@ -242,6 +242,38 @@ interface PayrollTransactionDao {
         return snapshot
     }
 
+    @Transaction
+    suspend fun approvePayrollSnapshots(snapshots: List<PayrollSnapshotEntity>): Int {
+        require(snapshots.isNotEmpty()) { "لا توجد كشوف جديدة للاعتماد" }
+        val monthKeys = snapshots.map { it.monthKey }.distinct()
+        require(monthKeys.size == 1 && monthKeys.single().matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
+            "يجب أن تنتمي جميع الكشوف إلى شهر واحد صحيح"
+        }
+        require(snapshots.map { it.employeeId }.distinct().size == snapshots.size) {
+            "يوجد موظف مكرر في قائمة الاعتماد"
+        }
+        snapshots.forEach { snapshot ->
+            require(snapshot.employeeId > 0) { "معرّف الموظف غير صحيح" }
+            require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
+                "كشف الراتب معتمد بالفعل لأحد الموظفين؛ حدّث الكشف وحاول مجددًا"
+            }
+        }
+        val now = System.currentTimeMillis()
+        snapshots.forEach { snapshot ->
+            insertPayrollSnapshot(snapshot.copy(approvedAtEpochMillis = now))
+            insertAuditEvent(
+                PayrollAuditEventEntity(
+                    action = "PAYROLL_APPROVED",
+                    employeeId = snapshot.employeeId,
+                    monthKey = snapshot.monthKey,
+                    afterValue = "netSalaryPiasters=${snapshot.netSalaryPiasters};absentDays=${snapshot.absentDays};batch=true",
+                    createdAtEpochMillis = now
+                )
+            )
+        }
+        return snapshots.size
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveCounter(counter: PayrollReferenceCounter)
 
