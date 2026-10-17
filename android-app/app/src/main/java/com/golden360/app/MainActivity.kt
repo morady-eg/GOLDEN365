@@ -152,7 +152,8 @@ private fun Golden360App(dao: EmployeeDao) {
                                     "penalties" -> "الجزاءات"
                                     "more" -> "المزيد من الخدمات"
                                     "attendance" -> "الحضور والغياب"
-                                    else -> "إدارة الرواتب والموارد البشرية"
+                                    "payroll" -> "مركز الرواتب والمستحقات"
+                                    else -> "إدارة الموارد البشرية"
                                 },
                                 color = Muted, fontSize = 11.sp
                             )
@@ -188,7 +189,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         bottomBar = {
-            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports) {
                 NavigationBar(containerColor = Color(0xFF171717), contentColor = SoftGold, tonalElevation = 0.dp) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
@@ -216,7 +217,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
