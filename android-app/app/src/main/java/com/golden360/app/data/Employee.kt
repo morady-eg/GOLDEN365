@@ -48,6 +48,14 @@ object EmployeeValidator {
         if (draft.jobTitle == null) errors["jobTitle"] = "اختر الوظيفة"
         validatePositiveMoney(draft.baseSalary, "baseSalary", "الراتب الأساسي", errors)
         validatePositiveMoney(draft.extraShiftRate, "extraShiftRate", "سعر الوردية الإضافية", errors)
+        val phoneDigits = draft.phone.filter { it.isDigit() }
+        if (phoneDigits.isNotEmpty() && !phoneDigits.matches(Regex("01[0125][0-9]{8}|20(10|11|12|15)[0-9]{8}|[1-9][0-9]{9,14}"))) {
+            errors["phone"] = "رقم الهاتف غير صحيح؛ أدخل رقمًا محليًا أو دوليًا مع كود الدولة"
+        }
+        val hireDate = draft.hireDate.trim()
+        if (hireDate.isNotEmpty() && runCatching { java.time.LocalDate.parse(hireDate) }.isFailure) {
+            errors["hireDate"] = "تاريخ التعيين يجب أن يكون بصيغة YYYY-MM-DD"
+        }
         val nationalId = draft.nationalId.trim()
         if (nationalId.isNotEmpty() && !nationalId.matches(Regex("[0-9]{14}"))) {
             errors["nationalId"] = "الرقم القومي يجب أن يتكون من 14 رقمًا"
