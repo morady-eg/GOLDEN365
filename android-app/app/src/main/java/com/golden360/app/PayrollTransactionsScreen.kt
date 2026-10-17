@@ -198,29 +198,15 @@ internal fun PayrollTransactionsScreen(
                 }
             }
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
-            var absentExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = absentExpanded, onExpandedChange = { if (approvedSnapshot == null) absentExpanded = !absentExpanded }) {
-                OutlinedTextField(
-                    value = absentDays,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("أيام الغياب في الشهر") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = absentExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = fieldColors()
-                )
-                ExposedDropdownMenu(expanded = absentExpanded, onDismissRequest = { absentExpanded = false }) {
-                    (0..30).forEach { days ->
-                        DropdownMenuItem(enabled = approvedSnapshot == null, text = { Text("$days يوم") }, onClick = {
-                            absentDays = days.toString(); absentExpanded = false
-                            val employeeId = selectedEmployee?.id; val monthKey = month
-                            if (employeeId != null && monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) scope.launch {
-                                runCatching { dao.saveAttendance(MonthlyAttendanceEntity(employeeId, monthKey, days)) }
-                                    .onSuccess { auditEvents = dao.getAuditEvents(employeeId, monthKey) }
-                                    .onFailure { error = "تعذر حفظ أيام الغياب: ${it.message ?: "خطأ غير معروف"}" }
-                            }
-                        })
+            Surface(
+                color = Panel, shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF4A3D24))
+            ) {
+                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("أيام الغياب المسجلة لهذا الشهر", color = Muted, fontSize = 12.sp)
+                        Text("$absentDays يوم", color = SoftGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("يتم تسجيل الغياب بالتاريخ من تبويب «الحضور»؛ الإجازة الأسبوعية مدفوعة.", color = Muted, fontSize = 11.sp)
                     }
                 }
             }
@@ -503,6 +489,8 @@ internal fun PayrollTransactionsScreen(
                         val actionLabel = when (event.action) {
                             "TRANSACTION_CREATED" -> "تسجيل حركة مالية"
                             "ABSENCE_UPDATED" -> "تعديل أيام الغياب"
+                            "ABSENCE_DATE_MARKED" -> "تسجيل غياب بتاريخ"
+                            "ABSENCE_DATE_CLEARED" -> "إلغاء غياب بتاريخ"
                             "PAYROLL_APPROVED" -> "اعتماد كشف الراتب"
                             else -> event.action
                         }
