@@ -80,6 +80,7 @@ internal fun PayrollTransactionsScreen(
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
     var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var confirmPayrollApproval by remember { mutableStateOf(false) }
     var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     var auditEvents by remember { mutableStateOf<List<PayrollAuditEventEntity>>(emptyList()) }
     var pendingVoidTransaction by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
@@ -451,26 +452,8 @@ internal fun PayrollTransactionsScreen(
                         }
                         Button(
                             enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
-                            onClick = {
-                                val employee = selectedEmployee; val summary = payrollSummary; val days = absentDays.toIntOrNull()
-                                if (employee == null || summary == null || days == null) error = "راجع بيانات الموظف وأيام الغياب"
-                                else scope.launch {
-                                    runCatching {
-                                        dao.getPayrollSnapshot(employee.id, month) ?: PayrollSnapshotEntity(
-                                            employeeId = employee.id, monthKey = month, employeeName = employee.fullName, employeeCode = employee.code,
-                                            jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
-                                            baseSalaryPiasters = employee.baseSalaryPiasters, absentDays = days,
-                                            absenceDeductionPiasters = summary.absenceDeductionPiasters,
-                                            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
-                                            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
-                                            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
-                                            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
-                                            netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
-                                        ).let { snapshot -> dao.approvePayrollSnapshot(snapshot).also { auditEvents = dao.getAuditEvents(employee.id, month) } }
-                                    }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
-                                        .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
-                                }
-                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                            onClick = { confirmPayrollApproval = true },
+                            modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
                         ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
                         Text("النسخة المعتمدة ثابتة ولا تتغير تلقائيًا عند تعديل ملف الموظف.", color = Muted, fontSize = 11.sp)
                     }
@@ -599,6 +582,72 @@ internal fun PayrollTransactionsScreen(
                 )
             }
         }
+    }
+    if (confirmPayrollApproval) {
+        val reviewNeeded = payrollSummary?.let { com.golden360.app.data.PayrollPolicy.requiresManualReview(it.netSalaryPiasters) } == true
+        AlertDialog(
+            onDismissRequest = { if (!saving) confirmPayrollApproval = false },
+            title = { Text("تأكيد اعتماد كشف الراتب") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("سيتم تثبيت كشف الموظف ${selectedEmployee?.fullName ?: "—"} لشهر $month بقيمة صافي ${payrollSummary?.let { formatMoney(it.netSalaryPiasters) } ?: "—"} ج.م.")
+                    Text("بعد الاعتماد لن يمكن تعديل حركات الشهر أو الغياب، وسيُحفظ سجل تدقيق للكشف.", color = Muted)
+                    if (reviewNeeded) {
+                        Text("تنبيه مهم: صافي الراتب سالب. لا تعتمد الكشف إلا بعد مراجعة المديونية والخصومات يدويًا.", color = Color(0xFFFF8A80), fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving && selectedEmployee != null && payrollSummary != null && absentDays.toIntOrNull() in 0..30,
+                    onClick = {
+                        val employee = selectedEmployee
+                        val summary = payrollSummary
+                        val days = absentDays.toIntOrNull()
+                        if (employee == null || summary == null || days == null) {
+                            error = "راجع بيانات الموظف وأيام الغياب"
+                            confirmPayrollApproval = false
+                        } else {
+                            saving = true
+                            scope.launch {
+                                runCatching {
+                                    val snapshot = PayrollSnapshotEntity(
+                                        employeeId = employee.id,
+                                        monthKey = month,
+                                        employeeName = employee.fullName,
+                                        employeeCode = employee.code,
+                                        jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
+                                        baseSalaryPiasters = employee.baseSalaryPiasters,
+                                        absentDays = days,
+                                        absenceDeductionPiasters = summary.absenceDeductionPiasters,
+                                        advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                        penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                        overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                                        bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                        netSalaryPiasters = summary.netSalaryPiasters,
+                                        approvedAtEpochMillis = System.currentTimeMillis()
+                                    )
+                                    dao.approvePayrollSnapshot(snapshot).also {
+                                        auditEvents = dao.getAuditEvents(employee.id, month)
+                                    }
+                                }.onSuccess { snapshot ->
+                                    approvedSnapshot = snapshot
+                                    pendingPayrollSnapshot = snapshot
+                                    confirmPayrollApproval = false
+                                    payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf")
+                                }.onFailure { failure ->
+                                    error = "تعذر اعتماد الكشف: ${failure.message ?: "قد يكون الكشف معتمدًا بالفعل"}"
+                                }
+                                saving = false
+                            }
+                        }
+                    }
+                ) { Text(if (saving) "جارٍ الاعتماد…" else "تأكيد الاعتماد") }
+            },
+            dismissButton = {
+                TextButton(enabled = !saving, onClick = { confirmPayrollApproval = false }) { Text("إلغاء") }
+            }
+        )
     }
 }
 
