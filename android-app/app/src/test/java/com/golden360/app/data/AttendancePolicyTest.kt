@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 
 class AttendancePolicyTest {
@@ -21,11 +22,11 @@ class AttendancePolicyTest {
         val workday = LocalDate.parse("2026-10-18")
         assertEquals(
             AttendanceDayStatus.AUTOMATIC_PRESENT,
-            AttendancePolicy.status(workday, setOf(DayOfWeek.FRIDAY), emptySet(), workday)
+            AttendancePolicy.status(workday, setOf(DayOfWeek.FRIDAY), emptySet(), workday, LocalTime.of(9, 0), "08:00")
         )
         assertEquals(
             AttendanceDayStatus.MANUALLY_ABSENT,
-            AttendancePolicy.status(workday, setOf(DayOfWeek.FRIDAY), setOf(workday), workday)
+            AttendancePolicy.status(workday, setOf(DayOfWeek.FRIDAY), setOf(workday), workday, LocalTime.of(9, 0), "08:00")
         )
     }
 
@@ -33,7 +34,23 @@ class AttendancePolicyTest {
         val future = LocalDate.parse("2026-10-20")
         assertEquals(
             AttendanceDayStatus.SCHEDULED,
-            AttendancePolicy.status(future, emptySet(), emptySet(), LocalDate.parse("2026-10-17"))
+            AttendancePolicy.status(future, emptySet(), emptySet(), LocalDate.parse("2026-10-17"), LocalTime.NOON, "08:00")
+        )
+    }
+
+    @Test fun todayBeforeConfiguredShiftStartIsNotYetMarkedPresent() {
+        val today = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.SCHEDULED,
+            AttendancePolicy.status(today, emptySet(), emptySet(), today, LocalTime.of(7, 59), "08:00")
+        )
+    }
+
+    @Test fun todayAtOrAfterShiftStartIsAutomaticallyPresentWithoutCheckout() {
+        val today = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.AUTOMATIC_PRESENT,
+            AttendancePolicy.status(today, emptySet(), emptySet(), today, LocalTime.of(8, 0), "08:00")
         )
     }
 
