@@ -98,6 +98,8 @@ private fun Golden360App(dao: EmployeeDao) {
     var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
+    var selectedPayrollEmployeeId by remember { mutableStateOf<Long?>(null) }
+    var payrollInitialMonth by remember { mutableStateOf(java.time.YearMonth.now().toString()) }
     var activeTab by remember { mutableStateOf("home") }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
@@ -122,6 +124,8 @@ private fun Golden360App(dao: EmployeeDao) {
 
     fun openTransactions(type: com.golden360.app.data.TransactionType) {
         selectedType = type
+        selectedPayrollEmployeeId = null
+        payrollInitialMonth = java.time.YearMonth.now().toString()
         showPayroll = true
     }
 
@@ -235,7 +239,9 @@ private fun Golden360App(dao: EmployeeDao) {
                 dao = PayrollDatabase.get(LocalContext.current).transactions(),
                 modifier = Modifier.padding(padding),
                 onBack = { showPayroll = false },
-                initialType = selectedType
+                initialType = selectedType,
+                initialEmployeeId = selectedPayrollEmployeeId,
+                initialMonth = payrollInitialMonth
             )
             showIdCard && selectedIdEmployees.isNotEmpty() -> EmployeeIdCardScreen(
                 employees = selectedIdEmployees,
@@ -268,8 +274,15 @@ private fun Golden360App(dao: EmployeeDao) {
                 onBackup = { showBackupScreen = true }
             )
             activeTab == "payroll" -> PayrollOverviewScreen(
+                employees = employees,
+                dao = PayrollDatabase.get(LocalContext.current).transactions(),
                 modifier = Modifier.padding(padding),
-                onOpenTransactions = { openTransactions(com.golden360.app.data.TransactionType.ADVANCE) }
+                onOpenTransactions = { type, employeeId, selectedMonth ->
+                    selectedType = type
+                    selectedPayrollEmployeeId = employeeId
+                    payrollInitialMonth = selectedMonth
+                    showPayroll = true
+                }
             )
             else -> DashboardScreen(
                 employees = employees,
@@ -438,43 +451,6 @@ private fun LuxuryActionCard(
             Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(subtitle, color = Muted, fontSize = 11.sp, maxLines = 1)
         }
-    }
-}
-
-@Composable
-private fun PayrollOverviewScreen(
-    modifier: Modifier = Modifier,
-    onOpenTransactions: () -> Unit
-) {
-    Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text("الرواتب", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("مراجعة الرواتب وسجل العمليات المالية من مكان واحد.", color = Muted, fontSize = 13.sp)
-        Surface(
-            color = Panel,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, Color(0xFF403625)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = SoftGold, modifier = Modifier.size(30.dp))
-                Text("سجل المعاملات المالية", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text("راجع السلف والجزاءات والمكافآت والورديات الإضافية من سجل واحد.", color = Muted, fontSize = 12.sp)
-                Button(
-                    onClick = onOpenTransactions,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
-                ) {
-                    Text("فتح سجل المعاملات", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.ChevronLeft, contentDescription = null)
-                }
-            }
-        }
-        Text("لإضافة سلفة أو جزاء أو وردية إضافية، افتح «المزيد» ثم اختر نوع العملية.", color = Muted, fontSize = 12.sp)
     }
 }
 
