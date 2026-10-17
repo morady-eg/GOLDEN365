@@ -2,6 +2,11 @@ package com.golden360.app
 
 import android.content.Intent
 import android.net.Uri
+import android.content.Context
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -27,6 +32,8 @@ import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.JobTitle
 import com.golden360.app.data.PayrollTransactionDao
 import com.golden360.app.data.PayrollTransactionEntity
+import com.golden360.app.data.MonthlyAttendanceEntity
+import com.golden360.app.data.PayrollSnapshotEntity
 import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
 import com.golden360.app.data.PayrollSummaryCalculator
@@ -64,29 +71,33 @@ internal fun PayrollTransactionsScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
+    var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val snapshot = pendingPayrollSnapshot
+        if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
+            .onFailure { error = "تعذر إنشاء ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        pendingPayrollSnapshot = null
+    }
 
     LaunchedEffect(employees) {
         if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
     }
-    LaunchedEffect(selectedEmployee?.id, month, transactions.size) {
+    LaunchedEffect(selectedEmployee?.id, month) {
+        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; error = null
         val employeeId = selectedEmployee?.id
-        transactions = if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
+        if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
             runCatching {
-                transactions = dao.getForEmployeeMonth(employeeId, month)
-                monthlyTotals = TransactionType.entries.associate { type ->
-                    type.name to dao.sumForEmployeeMonth(employeeId, month, type.name)
-                }
-            }.onFailure { error = "تعذر تحميل ملخص الشهر" }
-            transactions
-        } else {
-            monthlyTotals = emptyMap()
-            emptyList()
-        }
+                val loadedTransactions = dao.getForEmployeeMonth(employeeId, month)
+                val loadedTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employeeId, month, type.name) }
+                val attendance = dao.getAttendance(employeeId, month)
+                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString()
+            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
+        } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
 
     val payrollSummary = runCatching {
         val employee = selectedEmployee ?: throw IllegalArgumentException("اختر موظفًا")
-        val absent = absentDays.toInt()
+        val absent = absentDays.toIntOrNull() ?: throw IllegalArgumentException("أيام الغياب يجب أن تكون من 0 إلى 30")
         PayrollSummaryCalculator.calculate(
             baseSalaryPiasters = employee.baseSalaryPiasters,
             absentDays = absent,
@@ -184,7 +195,14 @@ internal fun PayrollTransactionsScreen(
                 )
                 ExposedDropdownMenu(expanded = absentExpanded, onDismissRequest = { absentExpanded = false }) {
                     (0..30).forEach { days ->
-                        DropdownMenuItem(text = { Text("$days يوم") }, onClick = { absentDays = days.toString(); absentExpanded = false })
+                        DropdownMenuItem(text = { Text("$days يوم") }, onClick = {
+                            absentDays = days.toString(); absentExpanded = false
+                            val employeeId = selectedEmployee?.id; val monthKey = month
+                            if (employeeId != null && monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) scope.launch {
+                                runCatching { dao.saveAttendance(MonthlyAttendanceEntity(employeeId, monthKey, days)) }
+                                    .onFailure { error = "تعذر حفظ أيام الغياب: ${it.message ?: "خطأ غير معروف"}" }
+                            }
+                        })
                     }
                 }
             }
@@ -328,14 +346,18 @@ internal fun PayrollTransactionsScreen(
                     else if (count == null || count <= 0) error = "العدد يجب أن يكون عددًا صحيحًا أكبر من صفر"
                     else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
-                    else if (selectedType == TransactionType.OVERTIME && overtimeTime.isBlank()) error = "أدخل موعد الوردية الإضافية"
+                    else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.YearMonth.from(java.time.LocalDate.parse(overtimeDate)).toString() }.getOrNull() != month) error = "شهر الحركة يجب أن يطابق شهر تاريخ الوردية"
+                    else if (selectedType == TransactionType.OVERTIME && !overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) error = "اختر موعدًا صحيحًا للوردية"
                     else if (enteredAmount == null || enteredAmount <= 0) error = "أدخل قيمة صحيحة أكبر من صفر"
                     else {
                         error = null
                         saving = true
                         scope.launch {
                             runCatching {
-                                dao.create(employee.id, selectedType, month, enteredAmount, count, note)
+                                dao.create(employee.id, selectedType, month, enteredAmount, count, note,
+                                    overtimePlace = if (selectedType == TransactionType.OVERTIME) overtimePlace else "",
+                                    overtimeDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else "",
+                                    overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
                             }.onSuccess { reference ->
                                 savedReference = reference
                                 val dateLabel = java.time.LocalDate.now().toString()
@@ -371,6 +393,7 @@ internal fun PayrollTransactionsScreen(
                                 overtimePlace = ""
                                 overtimeTime = ""
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
+                                monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
                         }
@@ -395,6 +418,30 @@ internal fun PayrollTransactionsScreen(
                         Text("المكافآت: ${formatMoney(monthlyTotals[TransactionType.BONUS.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
                         HorizontalDivider(color = Color(0xFF6A5429))
                         Text("صافي المرتب: ${formatMoney(payrollSummary.netSalaryPiasters)} ج.م", color = SoftGold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Button(
+                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
+                            onClick = {
+                                val employee = selectedEmployee; val summary = payrollSummary; val days = absentDays.toIntOrNull()
+                                if (employee == null || summary == null || days == null) error = "راجع بيانات الموظف وأيام الغياب"
+                                else scope.launch {
+                                    runCatching {
+                                        dao.getPayrollSnapshot(employee.id, month) ?: PayrollSnapshotEntity(
+                                            employeeId = employee.id, monthKey = month, employeeName = employee.fullName, employeeCode = employee.code,
+                                            jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
+                                            baseSalaryPiasters = employee.baseSalaryPiasters, absentDays = days,
+                                            absenceDeductionPiasters = summary.absenceDeductionPiasters,
+                                            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                                            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                            netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
+                                        ).also { dao.insertPayrollSnapshot(it) }
+                                    }.onSuccess { snapshot -> pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
+                                        .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                        ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                        Text("النسخة المعتمدة ثابتة ولا تتغير تلقائيًا عند تعديل ملف الموظف.", color = Muted, fontSize = 11.sp)
                     }
                 }
             } else if (selectedEmployee != null) {
@@ -411,6 +458,7 @@ internal fun PayrollTransactionsScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(transaction.reference, color = SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
+                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
                                 }
                                 Text("${formatMoney(transaction.amountPiasters)} ج.م", color = Color.White, fontWeight = FontWeight.SemiBold)
@@ -433,8 +481,29 @@ private fun GoldenField(label: String, value: String, onValueChange: (String) ->
     )
 }
 
-private fun formatMoney(piasters: Long): String =
-    java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
+private fun formatMoney(piasters: Long): String = java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
+
+private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: PayrollSnapshotEntity) {
+    val document = PdfDocument()
+    try {
+        val width = 595; val height = 842
+        val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
+        val canvas = page.canvas; canvas.drawColor(android.graphics.Color.WHITE)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(30,30,30); textAlign = Paint.Align.CENTER; textSize = 20f; typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, paint)
+        paint.textSize = 16f; canvas.drawText("Payroll Statement", width / 2f, 88f, paint)
+        paint.textAlign = Paint.Align.LEFT; paint.textSize = 12f; paint.typeface = android.graphics.Typeface.DEFAULT
+        val rows = listOf("Employee: ${snapshot.employeeName}", "Employee code: ${snapshot.employeeCode}", "Job title: ${snapshot.jobTitle}", "Payroll month: ${snapshot.monthKey}", "Base salary: ${formatMoney(snapshot.baseSalaryPiasters)} EGP", "Absence days: ${snapshot.absentDays}", "Absence deduction: ${formatMoney(snapshot.absenceDeductionPiasters)} EGP", "Advances: ${formatMoney(snapshot.advancesPiasters)} EGP", "Penalties: ${formatMoney(snapshot.penaltiesPiasters)} EGP", "Overtime: ${formatMoney(snapshot.overtimePiasters)} EGP", "Bonuses: ${formatMoney(snapshot.bonusesPiasters)} EGP", "NET SALARY: ${formatMoney(snapshot.netSalaryPiasters)} EGP", "Approved at: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}", "Saved snapshot; not recalculated automatically.")
+        var y = 140f
+        rows.forEachIndexed { index, row ->
+            paint.textSize = if (index == 11) 16f else 12f; paint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            paint.color = if (index == 11) android.graphics.Color.rgb(145,105,25) else android.graphics.Color.rgb(35,35,35)
+            canvas.drawText(row.take(88), 48f, y, paint); y += if (index == 11) 38f else 32f
+        }
+        document.finishPage(page)
+        context.contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
+    } finally { document.close() }
+}
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
