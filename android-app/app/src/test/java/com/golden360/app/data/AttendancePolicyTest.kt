@@ -172,4 +172,13 @@ class AttendancePolicyTest {
         assertFalse(AttendancePolicy.isValidShiftStartTime("25:30"))
         assertFalse(AttendancePolicy.isValidShiftStartTime("8:30"))
     }
+
+    @Test fun malformedClosedSuspensionDoesNotBecomeIndefinite() {
+        val dateAfterMalformedEnd = LocalDate.parse("2026-10-20")
+        assertFalse(AttendancePolicy.isSuspendedOn(dateAfterMalformedEnd, "2026-10-10|not-a-date"))
+        assertTrue(AttendancePolicy.isSuspendedOn(
+            LocalDate.parse("2026-10-11"),
+            "2026-10-10|"
+        ))
+    }
 }
