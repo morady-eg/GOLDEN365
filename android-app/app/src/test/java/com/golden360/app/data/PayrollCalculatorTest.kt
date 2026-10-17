@@ -39,6 +39,10 @@ class PayrollCalculatorTest {
         }
     }
 
+    @Test fun rejectsArithmeticOverflowInAbsenceCalculation() {
+        assertThrows(ArithmeticException::class.java) { PayrollCalculator.calculate(Long.MAX_VALUE, 2, 0, 0, 0, 0, 0) }
+    }
+
     @Test fun generatesDistinctTypedReferences() {
         assertEquals("ADV-000001", TransactionReferenceFormatter.format(TransactionType.ADVANCE, 1))
         assertEquals("PEN-000009", TransactionReferenceFormatter.format(TransactionType.PENALTY, 9))
