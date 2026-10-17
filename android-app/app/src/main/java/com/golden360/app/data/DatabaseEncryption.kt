@@ -68,6 +68,15 @@ internal object DatabaseEncryption {
         val existing = preferences.getString(preferenceName, null)
         if (existing != null) return unwrapPassphrase(databaseName, existing)
 
+        // A legacy plaintext Room database can be migrated safely, but an existing file
+        // without its wrapped key may be an encrypted database whose key was lost. Never
+        // generate a replacement key in that case: it would make the original data appear
+        // unrecoverable and overwrite the only key record we could have used to diagnose it.
+        val databaseFile = context.getDatabasePath(databaseName)
+        check(!databaseFile.exists() || isPlaintextSqliteDatabase(databaseFile)) {
+            "مفتاح تشفير قاعدة البيانات غير موجود أو الملف ليس قاعدة SQLite قديمة؛ تم الحفاظ على البيانات دون تغيير"
+        }
+
         val random = ByteArray(32).also(SecureRandom()::nextBytes)
         val passphrase = Base64.encodeToString(random, Base64.NO_WRAP)
         random.fill(0)
@@ -117,6 +126,20 @@ internal object DatabaseEncryption {
         return keyStore.getKey(KEY_ALIAS, null) as? SecretKey
             ?: error("مفتاح تشفير قاعدة البيانات غير موجود؛ أوقفنا الفتح لحماية البيانات")
     }
+
+    internal fun isPlaintextSqliteDatabase(database: File): Boolean {
+        if (!database.isFile || database.length() < SQLITE_HEADER.size) return false
+        return try {
+            database.inputStream().use { input ->
+                val header = ByteArray(SQLITE_HEADER.size)
+                input.read(header) == header.size && header.contentEquals(SQLITE_HEADER)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(StandardCharsets.US_ASCII)
 
     private fun migratePlaintextDatabaseIfNeeded(database: File, passphrase: String) {
         val parent = requireNotNull(database.parentFile)
