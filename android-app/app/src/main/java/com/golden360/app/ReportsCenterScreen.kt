@@ -322,15 +322,12 @@ private suspend fun buildReportPayload(
         employees.forEach { employee ->
             val attendance = dao.getAttendance(employee.id, month)
             val absences = dao.getDailyAbsences(employee.id, month)
-            val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(employee.weeklyOffDays)
-            val datedAbsences = absences.filter { row ->
-                !AttendancePolicy.isWeeklyOff(java.time.LocalDate.parse(row.dateKey), weeklyOffDays)
-            }
+            val datedAbsenceDates = effectiveDatedAbsenceDates(employee, month, absences)
             val legacyDays = attendance?.legacyAbsentDays ?: 0
-            val days = legacyDays + datedAbsences.size
-            totalDays += days
+            val days = Math.addExact(legacyDays, datedAbsenceDates.size)
+            totalDays = Math.addExact(totalDays, days.toLong())
             rows += listOf(employee.fullName, employee.code, month, days.toString(),
-                datedAbsences.joinToString("; ") { it.dateKey }, legacyDays.toString())
+                datedAbsenceDates.joinToString("; ") { it.toString() }, legacyDays.toString())
         }
         return ReportPayload(rows, employees.size, totalAbsenceDays = totalDays.toInt())
     }
@@ -351,10 +348,8 @@ private suspend fun buildReportPayload(
         val saved = dao.getPayrollSnapshot(employee.id, month)
         val attendance = dao.getAttendance(employee.id, month)
         val absences = dao.getDailyAbsences(employee.id, month)
-        val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(employee.weeklyOffDays)
-        val absentDays = (attendance?.legacyAbsentDays ?: 0) + absences.count { row ->
-            !AttendancePolicy.isWeeklyOff(java.time.LocalDate.parse(row.dateKey), weeklyOffDays)
-        }
+        val datedAbsenceDates = effectiveDatedAbsenceDates(employee, month, absences)
+        val absentDays = Math.addExact(attendance?.legacyAbsentDays ?: 0, datedAbsenceDates.size)
         val amounts = TransactionType.entries.associateWith { transactionType ->
             dao.sumForEmployeeMonth(employee.id, month, transactionType.name)
         }
@@ -415,6 +410,20 @@ private suspend fun buildReportPayload(
         ReportsCsv.formatPiasters(totalBonuses), ReportsCsv.formatPiasters(totalNet), "")
     return ReportPayload(rows, employees.size, totalNet)
 }
+
+private fun effectiveDatedAbsenceDates(
+    employee: EmployeeEntity,
+    month: String,
+    absences: List<com.golden360.app.data.DailyAbsenceEntity>
+): List<java.time.LocalDate> = AttendancePolicy.effectiveAbsenceDatesForMonth(
+    month = YearMonth.parse(month),
+    weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(employee.weeklyOffDays),
+    absentDates = absences.map { java.time.LocalDate.parse(it.dateKey) }.toSet(),
+    hireDate = employee.hireDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+    workStatus = employee.workStatus,
+    statusEffectiveDate = employee.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+    suspensionPeriods = employee.suspensionPeriods
+)
 
 private fun shareCsvFile(context: Context, uri: Uri) {
     val intent = Intent(Intent.ACTION_SEND).apply {

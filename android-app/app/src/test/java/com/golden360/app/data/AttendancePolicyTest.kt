@@ -173,6 +173,33 @@ class AttendancePolicyTest {
         assertFalse(AttendancePolicy.isValidShiftStartTime("8:30"))
     }
 
+    @Test fun effectiveAbsenceDatesExcludePreHireSuspensionWeeklyOffAndPostTerminationDates() {
+        val month = YearMonth.of(2026, 10)
+        val suspension = "2026-10-12|2026-10-14"
+        val absences = setOf(
+            LocalDate.parse("2026-10-09"), // before hire
+            LocalDate.parse("2026-10-12"), // suspended
+            LocalDate.parse("2026-10-16"), // Friday weekly off
+            LocalDate.parse("2026-10-19"), // active working day
+            LocalDate.parse("2026-10-20"), // termination effective date
+            LocalDate.parse("2026-10-21"), // after termination
+            LocalDate.parse("2026-11-02")  // other month
+        )
+
+        assertEquals(
+            listOf(LocalDate.parse("2026-10-19")),
+            AttendancePolicy.effectiveAbsenceDatesForMonth(
+                month = month,
+                weeklyOffDays = setOf(DayOfWeek.FRIDAY),
+                absentDates = absences,
+                hireDate = LocalDate.parse("2026-10-10"),
+                workStatus = "TERMINATED",
+                statusEffectiveDate = LocalDate.parse("2026-10-20"),
+                suspensionPeriods = suspension
+            )
+        )
+    }
+
     @Test fun malformedClosedSuspensionDoesNotBecomeIndefinite() {
         val dateAfterMalformedEnd = LocalDate.parse("2026-10-20")
         assertFalse(AttendancePolicy.isSuspendedOn(dateAfterMalformedEnd, "2026-10-10|not-a-date"))
