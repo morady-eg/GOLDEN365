@@ -67,6 +67,14 @@ class AttendancePolicyTest {
         )
     }
 
+    @Test fun invalidShiftStartDoesNotMarkTodayPresentAutomatically() {
+        val today = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.SCHEDULED,
+            AttendancePolicy.status(today, emptySet(), emptySet(), today, LocalTime.NOON, "invalid")
+        )
+    }
+
     @Test fun weeklyOffDaysCanBeStoredAndRestoredWithoutLocaleDependence() {
         val selected = setOf(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY)
         assertEquals(selected, AttendancePolicy.parseWeeklyOffDays(AttendancePolicy.serializeWeeklyOffDays(selected)))
