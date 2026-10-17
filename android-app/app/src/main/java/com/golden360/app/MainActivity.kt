@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,8 +44,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -753,9 +758,10 @@ private fun EmployeeListScreen(
                                 onCheckedChange = { checked -> selectedEmployeeIds = if (checked) selectedEmployeeIds + employee.id else selectedEmployeeIds - employee.id },
                                 colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
                             )
-                            Box(Modifier.size(48.dp).background(Color(0xFF302719), CircleShape), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Badge, contentDescription = null, tint = SoftGold, modifier = Modifier.size(24.dp))
-                            }
+                            EmployeeAvatar(
+                                photoUri = employee.profilePhotoUri,
+                                modifier = Modifier.size(48.dp)
+                            )
                             Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(employee.fullName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text("${employee.code} • " + (JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle), color = SoftGold, fontSize = 11.sp)
@@ -774,6 +780,37 @@ private fun EmployeeListScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmployeeAvatar(photoUri: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val photo = produceState<android.graphics.Bitmap?>(initialValue = null, photoUri) {
+        value = withContext(Dispatchers.IO) {
+            photoUri?.takeIf { it.isNotBlank() }?.let { raw ->
+                runCatching {
+                    context.contentResolver.openInputStream(Uri.parse(raw))?.use { stream ->
+                        android.graphics.BitmapFactory.decodeStream(stream)
+                    }
+                }.getOrNull()
+            }
+        }
+    }.value
+    if (photo != null) {
+        Image(
+            bitmap = photo.asImageBitmap(),
+            contentDescription = "الصورة الشخصية للموظف",
+            modifier = modifier.clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Image(
+            painter = painterResource(R.drawable.golden),
+            contentDescription = "الصورة الافتراضية للموظف",
+            modifier = modifier.clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
 @Composable
 private fun EmployeeFormScreen(
     employee: EmployeeEntity?,
