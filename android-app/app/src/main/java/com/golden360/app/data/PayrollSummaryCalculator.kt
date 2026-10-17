@@ -35,5 +35,54 @@ object PayrollSummaryCalculator {
  * A negative result is preserved as a balance requiring manual review before payment.
  */
 object PayrollPolicy {
+    private val monthKeyPattern = Regex("[0-9]{4}-(0[1-9]|1[0-2])")
+
     fun requiresManualReview(netSalaryPiasters: Long): Boolean = netSalaryPiasters < 0L
+
+    /** Validate snapshot invariants at the data layer, not only in the UI. */
+    fun validateSnapshot(snapshot: PayrollSnapshotEntity) {
+        require(snapshot.employeeId > 0) { "معرّف الموظف غير صحيح" }
+        require(snapshot.monthKey.matches(monthKeyPattern)) { "الشهر يجب أن يكون بصيغة YYYY-MM" }
+        require(snapshot.employeeName.isNotBlank() && snapshot.employeeCode.isNotBlank() && snapshot.jobTitle.isNotBlank()) {
+            "بيانات الموظف الأساسية ناقصة في كشف الراتب"
+        }
+        require(snapshot.baseSalaryPiasters >= 0L) { "الراتب الأساسي لا يمكن أن يكون سالبًا" }
+        require(snapshot.absentDays in 0..30) { "أيام الغياب يجب أن تكون من 0 إلى 30" }
+        require(
+            listOf(
+                snapshot.absenceDeductionPiasters,
+                snapshot.advancesPiasters,
+                snapshot.penaltiesPiasters,
+                snapshot.overtimePiasters,
+                snapshot.bonusesPiasters
+            ).all { it >= 0L }
+        ) { "مبالغ الخصم والإضافات لا يمكن أن تكون سالبة" }
+
+        val calculated = PayrollSummaryCalculator.calculate(
+            baseSalaryPiasters = snapshot.baseSalaryPiasters,
+            absentDays = snapshot.absentDays,
+            penaltiesPiasters = snapshot.penaltiesPiasters,
+            advancesPiasters = snapshot.advancesPiasters,
+            overtimePiasters = snapshot.overtimePiasters,
+            bonusesPiasters = snapshot.bonusesPiasters
+        )
+        require(snapshot.absenceDeductionPiasters == calculated.absenceDeductionPiasters &&
+            snapshot.netSalaryPiasters == calculated.netSalaryPiasters
+        ) { "إجمالي كشف الراتب لا يتطابق مع تفاصيله؛ أعد حساب الكشف قبل الاعتماد" }
+    }
+
+    /** Batch approval is intentionally stricter: negative balances require individual review. */
+    fun validateBatchApproval(snapshots: List<PayrollSnapshotEntity>) {
+        require(snapshots.isNotEmpty()) { "لا توجد كشوف جديدة للاعتماد" }
+        require(snapshots.map { it.monthKey }.distinct().size == 1) {
+            "يجب أن تنتمي جميع الكشوف إلى شهر واحد صحيح"
+        }
+        require(snapshots.map { it.employeeId }.distinct().size == snapshots.size) {
+            "يوجد موظف مكرر في قائمة الاعتماد"
+        }
+        snapshots.forEach(::validateSnapshot)
+        require(snapshots.none { requiresManualReview(it.netSalaryPiasters) }) {
+            "لا يمكن اعتماد دفعة تحتوي على صافي راتب سالب؛ يجب مراجعة الكشف واعتماده بشكل منفصل"
+        }
+    }
 }

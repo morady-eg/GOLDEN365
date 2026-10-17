@@ -204,7 +204,9 @@ internal fun AttendanceScreen(
                                         else -> Muted
                                     }, fontSize = 11.sp)
                                 }
-                                if ((status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) && !date.isAfter(today)) {
+                                if ((status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) &&
+                                    !date.isAfter(today) &&
+                                    (date in absentDates || status != AttendanceDayStatus.SCHEDULED)) {
                                     TextButton(
                                         enabled = !payrollApproved,
                                         onClick = {

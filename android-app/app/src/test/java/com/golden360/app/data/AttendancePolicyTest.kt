@@ -47,11 +47,31 @@ class AttendancePolicyTest {
         )
     }
 
+    @Test fun absenceRecordedBeforeTodaysShiftStartDoesNotOverrideScheduledStatus() {
+        val today = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.SCHEDULED,
+            AttendancePolicy.status(today, emptySet(), setOf(today), today, LocalTime.of(7, 59), "08:00")
+        )
+        assertEquals(
+            AttendanceDayStatus.MANUALLY_ABSENT,
+            AttendancePolicy.status(today, emptySet(), setOf(today), today, LocalTime.of(8, 0), "08:00")
+        )
+    }
+
     @Test fun todayAtOrAfterShiftStartIsAutomaticallyPresentWithoutCheckout() {
         val today = LocalDate.parse("2026-10-18")
         assertEquals(
             AttendanceDayStatus.AUTOMATIC_PRESENT,
             AttendancePolicy.status(today, emptySet(), emptySet(), today, LocalTime.of(8, 0), "08:00")
+        )
+    }
+
+    @Test fun invalidShiftStartDoesNotMarkTodayPresentAutomatically() {
+        val today = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.SCHEDULED,
+            AttendancePolicy.status(today, emptySet(), emptySet(), today, LocalTime.NOON, "invalid")
         )
     }
 

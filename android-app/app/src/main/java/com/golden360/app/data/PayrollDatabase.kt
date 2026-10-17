@@ -226,6 +226,7 @@ interface PayrollTransactionDao {
 
     @Transaction
     suspend fun approvePayrollSnapshot(snapshot: PayrollSnapshotEntity): PayrollSnapshotEntity {
+        PayrollPolicy.validateSnapshot(snapshot)
         require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
             "كشف الراتب معتمد بالفعل لهذا الموظف والشهر"
         }
@@ -240,6 +241,30 @@ interface PayrollTransactionDao {
             )
         )
         return snapshot
+    }
+
+    @Transaction
+    suspend fun approvePayrollSnapshots(snapshots: List<PayrollSnapshotEntity>): Int {
+        PayrollPolicy.validateBatchApproval(snapshots)
+        snapshots.forEach { snapshot ->
+            require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
+                "كشف الراتب معتمد بالفعل لأحد الموظفين؛ حدّث الكشف وحاول مجددًا"
+            }
+        }
+        val now = System.currentTimeMillis()
+        snapshots.forEach { snapshot ->
+            insertPayrollSnapshot(snapshot.copy(approvedAtEpochMillis = now))
+            insertAuditEvent(
+                PayrollAuditEventEntity(
+                    action = "PAYROLL_APPROVED",
+                    employeeId = snapshot.employeeId,
+                    monthKey = snapshot.monthKey,
+                    afterValue = "netSalaryPiasters=${snapshot.netSalaryPiasters};absentDays=${snapshot.absentDays};batch=true",
+                    createdAtEpochMillis = now
+                )
+            )
+        }
+        return snapshots.size
     }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -265,7 +290,7 @@ interface PayrollTransactionDao {
         require(getPayrollSnapshot(employeeId, monthKey) == null) { "لا يمكن إضافة حركة إلى شهر تم اعتماد كشف راتبه" }
         if (type == TransactionType.OVERTIME) {
             require(overtimePlace.isNotBlank()) { "مكان الوردية مطلوب" }
-            require(overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) { "موعد الوردية يجب أن يكون HH:mm" }
+            require(overtimeTime in setOf("صباحية", "مسائية") || overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) { "اختر صباحية أو مسائية للوردية الإضافية" }
             val date = java.time.LocalDate.parse(overtimeDate)
             require(java.time.YearMonth.from(date).toString() == monthKey) { "شهر الحركة يجب أن يطابق شهر الوردية" }
         }

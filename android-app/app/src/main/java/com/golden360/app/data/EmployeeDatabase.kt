@@ -48,6 +48,9 @@ interface EmployeeDao {
     @Query("SELECT * FROM employees WHERE archived = 0 ORDER BY fullName COLLATE NOCASE")
     suspend fun getActiveEmployees(): List<EmployeeEntity>
 
+    @Query("SELECT * FROM employees ORDER BY archived ASC, fullName COLLATE NOCASE")
+    suspend fun getAllEmployees(): List<EmployeeEntity>
+
     @Query("SELECT * FROM employees WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): EmployeeEntity?
 

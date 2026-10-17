@@ -53,13 +53,15 @@ internal fun PayrollTransactionsScreen(
     dao: PayrollTransactionDao,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    initialType: TransactionType = TransactionType.ADVANCE
+    initialType: TransactionType = TransactionType.ADVANCE,
+    initialEmployeeId: Long? = null,
+    initialMonth: String = java.time.YearMonth.now().toString()
 ) {
     var selectedEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var employeeExpanded by remember { mutableStateOf(false) }
     var selectedType by remember(initialType) { mutableStateOf(initialType) }
     var typeExpanded by remember { mutableStateOf(false) }
-    var month by remember { mutableStateOf(YearMonth.now().toString()) }
+    var month by remember { mutableStateOf(initialMonth) }
     var amount by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("1") }
     var note by remember { mutableStateOf("") }
@@ -67,31 +69,43 @@ internal fun PayrollTransactionsScreen(
     var overtimeDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var overtimeDatePickerOpen by remember { mutableStateOf(false) }
     var overtimeTime by remember { mutableStateOf("") }
-    var overtimeTimePickerOpen by remember { mutableStateOf(false) }
     var absentDays by remember { mutableStateOf("0") }
     var monthlyTotals by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var transactions by remember { mutableStateOf<List<PayrollTransactionEntity>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var savedReference by remember { mutableStateOf<String?>(null) }
+    var referenceQuery by remember { mutableStateOf("") }
+    var referenceResult by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
+    var referenceEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
+    var referenceSearchMessage by remember { mutableStateOf<String?>(null) }
+    var searchingReference by remember { mutableStateOf(false) }
+    var sharePayrollPdfAfterSave by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
     var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var confirmPayrollApproval by remember { mutableStateOf(false) }
     var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     var auditEvents by remember { mutableStateOf<List<PayrollAuditEventEntity>>(emptyList()) }
     var pendingVoidTransaction by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
     var voidReason by remember { mutableStateOf("") }
     val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val snapshot = pendingPayrollSnapshot
-        if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
-            .onFailure { error = "تعذر إنشاء ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        if (uri != null && snapshot != null) runCatching {
+            writePayrollSnapshotPdf(context, uri, snapshot)
+            if (sharePayrollPdfAfterSave) sharePdfFile(context, uri, "كشف راتب ${snapshot.employeeName}")
+        }.onFailure { error = "تعذر إنشاء/مشاركة ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        sharePayrollPdfAfterSave = false
         pendingPayrollSnapshot = null
     }
 
-    LaunchedEffect(employees) {
-        if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
+    LaunchedEffect(employees, initialEmployeeId) {
+        if (selectedEmployee == null || (initialEmployeeId != null && selectedEmployee?.id != initialEmployeeId)) {
+            selectedEmployee = employees.firstOrNull { it.id == initialEmployeeId } ?: selectedEmployee ?: employees.firstOrNull()
+        }
     }
+    LaunchedEffect(initialMonth) { month = initialMonth }
     LaunchedEffect(selectedEmployee?.id, month) {
         transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = null
         amount = ""; note = ""; overtimePlace = ""; overtimeTime = ""; savedReference = null; whatsappMessage = null
@@ -277,43 +291,37 @@ internal fun PayrollTransactionsScreen(
                         DatePicker(state = datePickerState)
                     }
                 }
-                OutlinedTextField(
-                    value = overtimeTime,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("موعد الوردية") },
-                    trailingIcon = {
-                        IconButton(onClick = { overtimeTimePickerOpen = true }) {
-                            Icon(Icons.Default.ReceiptLong, contentDescription = "اختيار الوقت", tint = SoftGold)
+                var overtimePeriodExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = overtimePeriodExpanded,
+                    onExpandedChange = { overtimePeriodExpanded = !overtimePeriodExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = overtimeTime,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("موعد الوردية الإضافية") },
+                        placeholder = { Text("اختر صباحية أو مسائية") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = overtimePeriodExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = fieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = overtimePeriodExpanded,
+                        onDismissRequest = { overtimePeriodExpanded = false }
+                    ) {
+                        listOf("صباحية", "مسائية").forEach { period ->
+                            DropdownMenuItem(
+                                text = { Text(period) },
+                                onClick = {
+                                    overtimeTime = period
+                                    overtimePeriodExpanded = false
+                                    savedReference = null
+                                }
+                            )
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = fieldColors()
-                )
-                if (overtimeTimePickerOpen) {
-                    val parsedTime = overtimeTime.split(":").mapNotNull { it.toIntOrNull() }
-                    val timePickerState = rememberTimePickerState(
-                        initialHour = parsedTime.getOrNull(0)?.coerceIn(0, 23) ?: 8,
-                        initialMinute = parsedTime.getOrNull(1)?.coerceIn(0, 59) ?: 0,
-                        is24Hour = true
-                    )
-                    AlertDialog(
-                        onDismissRequest = { overtimeTimePickerOpen = false },
-                        title = { Text("اختيار موعد الوردية", color = Color.White) },
-                        text = { TimePicker(state = timePickerState) },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                overtimeTime = "%02d:%02d".format(timePickerState.hour, timePickerState.minute)
-                                overtimeTimePickerOpen = false
-                                savedReference = null
-                            }) { Text("تأكيد", color = SoftGold) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { overtimeTimePickerOpen = false }) { Text("إلغاء", color = Muted) }
-                        },
-                        containerColor = Panel
-                    )
+                    }
                 }
                 Surface(color = Panel, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF4A3D24))) {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -360,7 +368,7 @@ internal fun PayrollTransactionsScreen(
                     else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.YearMonth.from(java.time.LocalDate.parse(overtimeDate)).toString() }.getOrNull() != month) error = "شهر الحركة يجب أن يطابق شهر تاريخ الوردية"
-                    else if (selectedType == TransactionType.OVERTIME && !overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) error = "اختر موعدًا صحيحًا للوردية"
+                    else if (selectedType == TransactionType.OVERTIME && overtimeTime !in listOf("صباحية", "مسائية")) error = "اختر صباحية أو مسائية للوردية الإضافية"
                     else if (enteredAmount == null || enteredAmount <= 0) error = "أدخل قيمة صحيحة أكبر من صفر"
                     else {
                         error = null
@@ -385,7 +393,7 @@ internal fun PayrollTransactionsScreen(
                                         append("*بيانات الموظف*\n")
                                         append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
                                         append("*تفاصيل الوردية الإضافية*\n")
-                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}\nعدد الورديات: ${count}\nالقيمة الإجمالية: ${formatMoney(enteredAmount)} ج.م\nشهر المرتب: ${month}")
+                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nفترة الوردية: ${overtimeTime.trim()}\nعدد الورديات: ${count}\nالقيمة الإجمالية: ${formatMoney(enteredAmount)} ج.م\nشهر المرتب: ${month}")
                                         if (note.isNotBlank()) append("\nملاحظات: ${note.trim()}")
                                         append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
                                     }
@@ -444,34 +452,110 @@ internal fun PayrollTransactionsScreen(
                         if (com.golden360.app.data.PayrollPolicy.requiresManualReview(payrollSummary.netSalaryPiasters)) {
                             Text("تنبيه: صافي المرتب سالب. لم يتم تصفيره تلقائيًا؛ يجب مراجعة المديونية والخصومات يدويًا قبل الصرف.", color = Color(0xFFFF8A80), fontSize = 12.sp)
                         }
-                        Button(
-                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && (absentDays.toIntOrNull() in 0..30),
+                        OutlinedButton(
+                            enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && ((absentDays.toIntOrNull() ?: -1) in 0..30),
                             onClick = {
-                                val employee = selectedEmployee; val summary = payrollSummary; val days = absentDays.toIntOrNull()
-                                if (employee == null || summary == null || days == null) error = "راجع بيانات الموظف وأيام الغياب"
-                                else scope.launch {
-                                    runCatching {
-                                        dao.getPayrollSnapshot(employee.id, month) ?: PayrollSnapshotEntity(
-                                            employeeId = employee.id, monthKey = month, employeeName = employee.fullName, employeeCode = employee.code,
-                                            jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
-                                            baseSalaryPiasters = employee.baseSalaryPiasters, absentDays = days,
-                                            absenceDeductionPiasters = summary.absenceDeductionPiasters,
-                                            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
-                                            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
-                                            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
-                                            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
-                                            netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
-                                        ).let { snapshot -> dao.approvePayrollSnapshot(snapshot).also { auditEvents = dao.getAuditEvents(employee.id, month) } }
-                                    }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
-                                        .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
-                                }
-                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
-                        ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                                val employee = selectedEmployee!!
+                                pendingPayrollSnapshot = approvedSnapshot ?: PayrollSnapshotEntity(
+                                    employeeId = employee.id,
+                                    monthKey = month,
+                                    employeeName = employee.fullName,
+                                    employeeCode = employee.code,
+                                    jobTitle = employee.jobTitle,
+                                    baseSalaryPiasters = employee.baseSalaryPiasters,
+                                    absentDays = absentDays.toInt(),
+                                    absenceDeductionPiasters = payrollSummary.absenceDeductionPiasters,
+                                    advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                    penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                    overtimePiasters = payrollSummary.overtimePayPiasters,
+                                    bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                    netSalaryPiasters = payrollSummary.netSalaryPiasters,
+                                    approvedAtEpochMillis = System.currentTimeMillis()
+                                )
+                                sharePayrollPdfAfterSave = true
+                                payrollPdfLauncher.launch("كشف_راتب_${employee.code}_${month}.pdf")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("مشاركة كشف الراتب PDF") }
+                        if (approvedSnapshot == null) {
+                            Button(
+                                enabled = !saving && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])")) && ((absentDays.toIntOrNull() ?: -1) in 0..30),
+                                onClick = { confirmPayrollApproval = true },
+                                modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                            ) { Text("اعتماد كشف الراتب وتصدير PDF", fontWeight = FontWeight.Bold) }
+                        } else {
+                            Text("تم اعتماد الكشف وتثبيت أرقامه؛ لا يمكن تعديل حركات الشهر أو الغياب.", color = Color(0xFFB7D88A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                         Text("النسخة المعتمدة ثابتة ولا تتغير تلقائيًا عند تعديل ملف الموظف.", color = Muted, fontSize = 11.sp)
                     }
                 }
             } else if (selectedEmployee != null) {
                 Text("أدخل أيام غياب صحيحة من 0 إلى 30 لعرض صافي المرتب.", color = Color(0xFFFF8A80), fontSize = 12.sp)
+            }
+            Text("البحث بالرقم المرجعي", color = SoftGold, fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = referenceQuery,
+                onValueChange = { referenceQuery = it; referenceSearchMessage = null },
+                label = { Text("أدخل الرقم المرجعي للعملية") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                shape = RoundedCornerShape(12.dp),
+                colors = fieldColors()
+            )
+            Button(
+                onClick = {
+                    val query = referenceQuery.trim()
+                    if (query.isBlank()) {
+                        referenceResult = null
+                        referenceSearchMessage = "أدخل الرقم المرجعي أولاً."
+                    } else {
+                        searchingReference = true
+                        referenceSearchMessage = null
+                        scope.launch {
+                            runCatching { dao.getByReference(query.uppercase()) }
+                                .onSuccess { result ->
+                                    referenceResult = result
+                                    referenceEmployee = if (result != null) {
+                                        runCatching { com.golden360.app.data.EmployeeDatabase.get(context).employeeDao().getById(result.employeeId) }.getOrNull()
+                                    } else null
+                                    referenceSearchMessage = if (result == null) "لم يتم العثور على عملية بهذا الرقم المرجعي." else null
+                                }
+                                .onFailure { referenceResult = null; referenceEmployee = null; referenceSearchMessage = "تعذر البحث الآن. حاول مرة أخرى." }
+                            searchingReference = false
+                        }
+                    }
+                },
+                enabled = !searchingReference,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+            ) { Text(if (searchingReference) "جارٍ البحث..." else "بحث عن العملية", fontWeight = FontWeight.Bold) }
+            if (referenceSearchMessage != null) Text(referenceSearchMessage!!, color = Color(0xFFFFA39A), fontSize = 12.sp)
+            referenceResult?.let { result ->
+                val employee = referenceEmployee ?: employees.firstOrNull { it.id == result.employeeId }
+                Surface(
+                    color = Color(0xFF302719),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFF6A5429)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("تفاصيل العملية", color = SoftGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("الرقم المرجعي: ${result.reference}", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("الموظف: ${employee?.fullName ?: "موظف غير موجود في القائمة الحالية"}${employee?.code?.let { " • الكود: $it" } ?: ""}", color = Color.White)
+                        Text("نوع العملية: ${TransactionType.entries.firstOrNull { it.name == result.type }?.arabicLabel ?: result.type}", color = Color.White)
+                        Text("المبلغ: ${formatMoney(result.amountPiasters)} ج.م", color = SoftGold, fontWeight = FontWeight.Bold)
+                        Text("الشهر: ${result.monthKey} • العدد: ${result.quantity}", color = Muted, fontSize = 12.sp)
+                        Text("تاريخ التسجيل: ${java.time.Instant.ofEpochMilli(result.createdAtEpochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().toString().replace('T', ' ')}", color = Muted, fontSize = 12.sp)
+                        if (result.type == TransactionType.OVERTIME.name) {
+                            Text("مكان الوردية: ${result.overtimePlace}", color = Color.White)
+                            Text("تاريخ الوردية: ${result.overtimeDate} • الفترة: ${result.overtimeTime}", color = Color.White)
+                        }
+                        if (result.note.isNotBlank()) Text("ملاحظات: ${result.note}", color = Color.White)
+                        if (result.voidedAtEpochMillis != null) Text("الحالة: ملغاة • السبب: ${result.voidReason ?: "غير محدد"}", color = Color(0xFFFFA39A), fontWeight = FontWeight.Bold)
+                        else Text("الحالة: مسجلة", color = Color(0xFFB7D88A), fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             Text("حركات الشهر المحدد", color = SoftGold, fontWeight = FontWeight.Bold)
             if (transactions.isEmpty()) {
@@ -491,7 +575,7 @@ internal fun PayrollTransactionsScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(transaction.reference, color = if (transaction.voidedAtEpochMillis != null) Muted else SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
-                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
+                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الفترة: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
                                     if (transaction.voidedAtEpochMillis != null) {
                                         Text("ملغاة • السبب: ${transaction.voidReason ?: "—"}", color = Color(0xFFFFA39A), fontSize = 11.sp)
@@ -595,6 +679,72 @@ internal fun PayrollTransactionsScreen(
             }
         }
     }
+    if (confirmPayrollApproval) {
+        val reviewNeeded = payrollSummary?.let { com.golden360.app.data.PayrollPolicy.requiresManualReview(it.netSalaryPiasters) } == true
+        AlertDialog(
+            onDismissRequest = { if (!saving) confirmPayrollApproval = false },
+            title = { Text("تأكيد اعتماد كشف الراتب") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("سيتم تثبيت كشف الموظف ${selectedEmployee?.fullName ?: "—"} لشهر $month بقيمة صافي ${payrollSummary?.let { formatMoney(it.netSalaryPiasters) } ?: "—"} ج.م.")
+                    Text("بعد الاعتماد لن يمكن تعديل حركات الشهر أو الغياب، وسيُحفظ سجل تدقيق للكشف.", color = Muted)
+                    if (reviewNeeded) {
+                        Text("تنبيه مهم: صافي الراتب سالب. لا تعتمد الكشف إلا بعد مراجعة المديونية والخصومات يدويًا.", color = Color(0xFFFF8A80), fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving && selectedEmployee != null && payrollSummary != null && absentDays.toIntOrNull() in 0..30,
+                    onClick = {
+                        val employee = selectedEmployee
+                        val summary = payrollSummary
+                        val days = absentDays.toIntOrNull()
+                        if (employee == null || summary == null || days == null) {
+                            error = "راجع بيانات الموظف وأيام الغياب"
+                            confirmPayrollApproval = false
+                        } else {
+                            saving = true
+                            scope.launch {
+                                runCatching {
+                                    val snapshot = PayrollSnapshotEntity(
+                                        employeeId = employee.id,
+                                        monthKey = month,
+                                        employeeName = employee.fullName,
+                                        employeeCode = employee.code,
+                                        jobTitle = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle,
+                                        baseSalaryPiasters = employee.baseSalaryPiasters,
+                                        absentDays = days,
+                                        absenceDeductionPiasters = summary.absenceDeductionPiasters,
+                                        advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                                        penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                                        overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                                        bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
+                                        netSalaryPiasters = summary.netSalaryPiasters,
+                                        approvedAtEpochMillis = System.currentTimeMillis()
+                                    )
+                                    dao.approvePayrollSnapshot(snapshot).also {
+                                        auditEvents = dao.getAuditEvents(employee.id, month)
+                                    }
+                                }.onSuccess { snapshot ->
+                                    approvedSnapshot = snapshot
+                                    pendingPayrollSnapshot = snapshot
+                                    confirmPayrollApproval = false
+                                    payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf")
+                                }.onFailure { failure ->
+                                    error = "تعذر اعتماد الكشف: ${failure.message ?: "قد يكون الكشف معتمدًا بالفعل"}"
+                                }
+                                saving = false
+                            }
+                        }
+                    }
+                ) { Text(if (saving) "جارٍ الاعتماد…" else "تأكيد الاعتماد") }
+            },
+            dismissButton = {
+                TextButton(enabled = !saving, onClick = { confirmPayrollApproval = false }) { Text("إلغاء") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -610,58 +760,17 @@ private fun GoldenField(label: String, value: String, onValueChange: (String) ->
 private fun formatMoney(piasters: Long): String = java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
 
 private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: PayrollSnapshotEntity) {
-    val document = PdfDocument()
-    try {
-        val width = 595; val height = 842
-        val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
-        val canvas = page.canvas; canvas.drawColor(android.graphics.Color.WHITE)
-        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.rgb(30, 30, 30)
-            textAlign = Paint.Align.CENTER
-            textSize = 20f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, headerPaint)
-        headerPaint.textSize = 16f
-        canvas.drawText("كشف راتب معتمد", width / 2f, 88f, headerPaint)
-        val rows = listOf(
-            "اسم الموظف: ${snapshot.employeeName}",
-            "كود الموظف: ${snapshot.employeeCode}",
-            "المسمى الوظيفي: ${snapshot.jobTitle}",
-            "شهر المرتب: ${snapshot.monthKey}",
-            "الراتب الأساسي: ${formatMoney(snapshot.baseSalaryPiasters)} ج.م",
-            "أيام الغياب: ${snapshot.absentDays}",
-            "خصم الغياب: ${formatMoney(snapshot.absenceDeductionPiasters)} ج.م",
-            "السلف: ${formatMoney(snapshot.advancesPiasters)} ج.م",
-            "الجزاءات: ${formatMoney(snapshot.penaltiesPiasters)} ج.م",
-            "الورديات الإضافية: ${formatMoney(snapshot.overtimePiasters)} ج.م",
-            "المكافآت: ${formatMoney(snapshot.bonusesPiasters)} ج.م",
-            "صافي المرتب: ${formatMoney(snapshot.netSalaryPiasters)} ج.م",
-            "تاريخ الاعتماد: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}",
-            "هذه نسخة محفوظة ولا يعاد حسابها تلقائيًا."
-        )
-        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.rgb(35, 35, 35)
-            textSize = 14f
-        }
-        var y = 122f
-        rows.forEachIndexed { index, row ->
-            textPaint.textSize = if (index == 11) 18f else 14f
-            textPaint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            textPaint.color = if (index == 11) android.graphics.Color.rgb(145, 105, 25) else android.graphics.Color.rgb(35, 35, 35)
-            val layout = StaticLayout.Builder.obtain(row, 0, row.length, textPaint, width - 96)
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                .setTextDirection(TextDirectionHeuristics.RTL)
-                .build()
-            canvas.save()
-            canvas.translate(48f, y)
-            layout.draw(canvas)
-            canvas.restore()
-            y += layout.height + if (index == 11) 20f else 12f
-        }
-        document.finishPage(page)
-        context.contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
-    } finally { document.close() }
+    PayrollReportPdf.writeIndividual(context, uri, snapshot)
+}
+
+private fun sharePdfFile(context: Context, uri: Uri, title: String) {
+    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "application/pdf"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        clipData = android.content.ClipData.newUri(context.contentResolver, title, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(sendIntent, "مشاركة ملف PDF"))
 }
 
 @Composable
