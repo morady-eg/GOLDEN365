@@ -111,7 +111,15 @@ decodeSampledBitmap(context, Uri.parse(uriText), 360, 360)
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                Text(EmployeeIdCardSpec.COMPANY_NAME, color = Color(0xFF151515), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Box(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF18191B), RoundedCornerShape(6.dp)).padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(EmployeeIdCardSpec.COMPANY_NAME, color = Color(0xFFB8913D), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp)
+                        Text("EMPLOYEE IDENTIFICATION", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                    }
+                }
                 Box(
                     modifier = Modifier.size(104.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF0F0F0)),
                     contentAlignment = Alignment.Center
@@ -124,12 +132,15 @@ decodeSampledBitmap(context, Uri.parse(uriText), 360, 360)
                 }
                 Text(employee.fullName, color = Color(0xFF151515), fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Text(JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle, color = Color(0xFF6B5428), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    Text("كود الموظف: ", color = Color.DarkGray, fontSize = 11.sp)
-                    Text(employee.code, color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFFF0E8D7), RoundedCornerShape(8.dp)).padding(vertical = 5.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("كود الموظف: ", color = Color(0xFF6B5428), fontSize = 11.sp)
+                    Text(employee.code, color = Color(0xFF18191B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 if (qr != null) {
-                    Image(qr.asImageBitmap(), contentDescription = "باركود QR لكود الموظف", modifier = Modifier.size(94.dp))
+                    Image(qr.asImageBitmap(), contentDescription = "باركود QR لكود الموظف", modifier = Modifier.size(88.dp))
                 }
                 Text(employee.code, color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(2.dp))
