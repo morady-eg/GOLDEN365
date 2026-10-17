@@ -177,19 +177,29 @@ internal fun AttendanceScreen(
                 ) {
                     items(monthDates, key = { it.toString() }) { date ->
                         val hireDate = selectedEmployee?.hireDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, clockNow.toLocalTime(), selectedEmployee?.shiftStartTime ?: "08:00", hireDate)
+                        val statusEffectiveDate = selectedEmployee?.statusEffectiveDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                        val status = AttendancePolicy.status(
+                            date, weeklyOffDays, absentDates, today, clockNow.toLocalTime(),
+                            selectedEmployee?.shiftStartTime ?: "08:00", hireDate,
+                            selectedEmployee?.workStatus ?: "ACTIVE", statusEffectiveDate,
+                            selectedEmployee?.suspensionPeriods.orEmpty()
+                        )
                         val statusLabel = when (status) {
                             AttendanceDayStatus.PAID_WEEKLY_OFF -> "إجازة أسبوعية مدفوعة"
                             AttendanceDayStatus.MANUALLY_ABSENT -> "غياب مسجل — يُخصم حسب سياسة المرتب"
                             AttendanceDayStatus.AUTOMATIC_PRESENT -> "حاضر تلقائيًا"
                             AttendanceDayStatus.SCHEDULED -> "يوم عمل مجدول"
                             AttendanceDayStatus.NOT_YET_HIRED -> "قبل تاريخ التعيين"
+                            AttendanceDayStatus.TEMPORARILY_SUSPENDED -> "إيقاف مؤقت — لا يُحتسب حضور أو غياب"
+                            AttendanceDayStatus.EMPLOYMENT_ENDED -> "انتهى العمل — لا يُحتسب حضور بعد هذا التاريخ"
                         }
                         Surface(
                             color = Panel, shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, when (status) {
                                 AttendanceDayStatus.MANUALLY_ABSENT -> Color(0xFF9A4A42)
                                 AttendanceDayStatus.PAID_WEEKLY_OFF -> Color(0xFF4A673F)
+                                AttendanceDayStatus.TEMPORARILY_SUSPENDED -> Gold
+                                AttendanceDayStatus.EMPLOYMENT_ENDED -> Color(0xFF9A4A42)
                                 else -> Color(0xFF403625)
                             })
                         ) {
@@ -203,10 +213,13 @@ internal fun AttendanceScreen(
                                     Text(statusLabel, color = when (status) {
                                         AttendanceDayStatus.MANUALLY_ABSENT -> Color(0xFFFFA39A)
                                         AttendanceDayStatus.PAID_WEEKLY_OFF -> Color(0xFFA7D6A0)
+                                AttendanceDayStatus.TEMPORARILY_SUSPENDED -> SoftGold
+                                AttendanceDayStatus.EMPLOYMENT_ENDED -> Color(0xFFFFA39A)
                                         else -> Muted
                                     }, fontSize = 11.sp)
                                 }
                                 if ((status != AttendanceDayStatus.NOT_YET_HIRED || date in absentDates) &&
+                                    (status !in setOf(AttendanceDayStatus.TEMPORARILY_SUSPENDED, AttendanceDayStatus.EMPLOYMENT_ENDED) || date in absentDates) &&
                                     (status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) &&
                                     !date.isAfter(today) &&
                                     (date in absentDates || status != AttendanceDayStatus.SCHEDULED)) {
@@ -217,7 +230,7 @@ internal fun AttendanceScreen(
                                             val markAbsent = date !in absentDates
                                             scope.launch {
                                                 runCatching {
-                                                    dao.setDailyAbsence(employee.id, date.toString(), month.toString(), employee.weeklyOffDays, markAbsent, employee.hireDate)
+                                                    dao.setDailyAbsence(employee.id, date.toString(), month.toString(), employee.weeklyOffDays, markAbsent, employee.hireDate, employee.workStatus, employee.statusEffectiveDate, employee.suspensionPeriods)
                                                     val rows = dao.getDailyAbsences(employee.id, month.toString())
                                                     val monthly = dao.getAttendance(employee.id, month.toString())
                                                     absentDates = rows.map { LocalDate.parse(it.dateKey) }.toSet()
