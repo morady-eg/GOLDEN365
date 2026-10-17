@@ -239,7 +239,7 @@ private class EmployeeIdPrintAdapter(private val context: Context, private val e
             FileOutputStream(destination.fileDescriptor).use { document.writeTo(it) }
             callback.onWriteFinished(requestedPages.map { android.print.PageRange(it, it) }.toTypedArray())
         } catch (error: Exception) {
-            callback.onWriteFailed(error.message ?: "تعذر إنشاء بطاقات الموظفين")
+            callback.onWriteFailed(error.message ?: "UNABLE TO CREATE EMPLOYEE ID CARDS")
         } finally { document.close() }
     }
 }
