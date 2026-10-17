@@ -101,7 +101,7 @@ internal fun PayrollTransactionsScreen(
     }.getOrNull()
 
     Column(
-        modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
