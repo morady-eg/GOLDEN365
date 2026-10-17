@@ -26,6 +26,10 @@ internal object BackupManager {
     fun createEncryptedBackup(context: Context, password: CharArray): ByteArray {
         require(password.size >= 10) { "استخدم كلمة مرور من 10 أحرف على الأقل" }
         val app = context.applicationContext
+        // Open both databases through their normal initialization path first. This also
+        // completes the supported plaintext-to-SQLCipher migration before copying either file.
+        EmployeeDatabase.get(app)
+        PayrollDatabase.get(app)
         val employeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
         val payrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
         closeDatabases()
@@ -78,31 +82,35 @@ internal object BackupManager {
             val payrollRollback = File(staging, "payroll.previous")
             val hadEmployeeFile = employeeFile.exists()
             val hadPayrollFile = payrollFile.exists()
-            if (hadEmployeeFile) check(employeeFile.copyTo(employeeRollback, overwrite = true).exists())
-            if (hadPayrollFile) check(payrollFile.copyTo(payrollRollback, overwrite = true).exists())
-
             val oldEmployeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
             val oldPayrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
+
+            // Close Room before taking rollback copies so committed WAL contents are checkpointed
+            // into the database files. Copying the main DB while it is open can make rollback stale.
             closeDatabases()
             try {
-                deleteSidecars(employeeFile)
-                deleteSidecars(payrollFile)
-                employeeStage.copyTo(employeeFile, overwrite = true)
-                payrollStage.copyTo(payrollFile, overwrite = true)
-                DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, employeePassphrase)
-                DatabaseEncryption.installPassphrase(app, PAYROLL_DB, payrollPassphrase)
-                validateEncryptedDatabase(employeeFile, employeePassphrase)
-                validateEncryptedDatabase(payrollFile, payrollPassphrase)
-            } catch (error: Exception) {
-                if (hadEmployeeFile && employeeRollback.exists()) employeeRollback.copyTo(employeeFile, overwrite = true)
-                else employeeFile.delete()
-                if (hadPayrollFile && payrollRollback.exists()) payrollRollback.copyTo(payrollFile, overwrite = true)
-                else payrollFile.delete()
-                runCatching { DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, oldEmployeePassphrase) }
-                runCatching { DatabaseEncryption.installPassphrase(app, PAYROLL_DB, oldPayrollPassphrase) }
-                deleteSidecars(employeeFile)
-                deleteSidecars(payrollFile)
-                throw IllegalStateException("فشلت الاستعادة؛ تمت محاولة إعادة البيانات السابقة دون حذف النسخة الاحتياطية", error)
+                if (hadEmployeeFile) check(employeeFile.copyTo(employeeRollback, overwrite = true).exists())
+                if (hadPayrollFile) check(payrollFile.copyTo(payrollRollback, overwrite = true).exists())
+                try {
+                    deleteSidecars(employeeFile)
+                    deleteSidecars(payrollFile)
+                    employeeStage.copyTo(employeeFile, overwrite = true)
+                    payrollStage.copyTo(payrollFile, overwrite = true)
+                    DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, employeePassphrase)
+                    DatabaseEncryption.installPassphrase(app, PAYROLL_DB, payrollPassphrase)
+                    validateEncryptedDatabase(employeeFile, employeePassphrase)
+                    validateEncryptedDatabase(payrollFile, payrollPassphrase)
+                } catch (error: Exception) {
+                    if (hadEmployeeFile && employeeRollback.exists()) employeeRollback.copyTo(employeeFile, overwrite = true)
+                    else employeeFile.delete()
+                    if (hadPayrollFile && payrollRollback.exists()) payrollRollback.copyTo(payrollFile, overwrite = true)
+                    else payrollFile.delete()
+                    runCatching { DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, oldEmployeePassphrase) }
+                    runCatching { DatabaseEncryption.installPassphrase(app, PAYROLL_DB, oldPayrollPassphrase) }
+                    deleteSidecars(employeeFile)
+                    deleteSidecars(payrollFile)
+                    throw IllegalStateException("فشلت الاستعادة؛ تمت محاولة إعادة البيانات السابقة دون حذف النسخة الاحتياطية", error)
+                }
             } finally {
                 reopenDatabases(app)
             }
