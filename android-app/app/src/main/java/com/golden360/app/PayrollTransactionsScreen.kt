@@ -379,6 +379,7 @@ internal fun PayrollTransactionsScreen(
                                     overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
                             }.onSuccess { reference ->
                                 savedReference = reference
+                                runCatching {
                                 val dateLabel = java.time.LocalDate.now().toString()
                                 val jobLabel = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
                                 whatsappMessage = when (selectedType) {
@@ -414,6 +415,9 @@ internal fun PayrollTransactionsScreen(
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
                                 monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
                                  auditEvents = dao.getAuditEvents(employee.id, month)
+                                }.onFailure {
+                                    error = "تم حفظ الحركة بالرقم المرجعي: ${reference}، لكن تعذر تحديث الشاشة. أعد فتح الحركات للتحقق من البيانات."
+                                }
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
                         }
