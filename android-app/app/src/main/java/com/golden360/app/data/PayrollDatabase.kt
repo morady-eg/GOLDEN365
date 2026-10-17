@@ -57,6 +57,22 @@ data class PayrollReferenceCounter(
     val lastSequence: Long
 )
 
+@Entity(
+    tableName = "payroll_audit_events",
+    indices = [Index(value = ["employeeId", "createdAtEpochMillis"]), Index(value = ["transactionReference"])]
+)
+data class PayrollAuditEventEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val action: String,
+    val employeeId: Long,
+    val monthKey: String,
+    val transactionReference: String? = null,
+    val beforeValue: String? = null,
+    val afterValue: String,
+    val actor: String = "LOCAL_DEVICE",
+    val createdAtEpochMillis: Long
+)
+
 @Dao
 interface PayrollTransactionDao {
     @Query("SELECT * FROM payroll_transactions WHERE employeeId = :employeeId AND monthKey = :monthKey ORDER BY createdAtEpochMillis DESC")
@@ -76,18 +92,55 @@ interface PayrollTransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAttendance(attendance: MonthlyAttendanceEntity)
 
+    @Query("SELECT * FROM payroll_audit_events WHERE employeeId = :employeeId AND monthKey = :monthKey ORDER BY createdAtEpochMillis DESC, id DESC")
+    suspend fun getAuditEvents(employeeId: Long, monthKey: String): List<PayrollAuditEventEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAuditEvent(event: PayrollAuditEventEntity): Long
+
     @Transaction
     suspend fun saveAttendance(attendance: MonthlyAttendanceEntity) {
         require(attendance.absentDays in 0..30) { "أيام الغياب يجب أن تكون من 0 إلى 30" }
         require(getPayrollSnapshot(attendance.employeeId, attendance.monthKey) == null) {
             "لا يمكن تعديل الغياب بعد اعتماد كشف الراتب"
         }
+        val previous = getAttendance(attendance.employeeId, attendance.monthKey)
         upsertAttendance(attendance)
+        if (previous?.absentDays != attendance.absentDays) {
+            insertAuditEvent(
+                PayrollAuditEventEntity(
+                    action = "ABSENCE_UPDATED",
+                    employeeId = attendance.employeeId,
+                    monthKey = attendance.monthKey,
+                    beforeValue = previous?.absentDays?.toString(),
+                    afterValue = attendance.absentDays.toString(),
+                    createdAtEpochMillis = System.currentTimeMillis()
+                )
+            )
+        }
     }
     @Query("SELECT * FROM payroll_snapshots WHERE employeeId = :employeeId AND monthKey = :monthKey LIMIT 1")
     suspend fun getPayrollSnapshot(employeeId: Long, monthKey: String): PayrollSnapshotEntity?
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertPayrollSnapshot(snapshot: PayrollSnapshotEntity)
+
+    @Transaction
+    suspend fun approvePayrollSnapshot(snapshot: PayrollSnapshotEntity): PayrollSnapshotEntity {
+        require(getPayrollSnapshot(snapshot.employeeId, snapshot.monthKey) == null) {
+            "كشف الراتب معتمد بالفعل لهذا الموظف والشهر"
+        }
+        insertPayrollSnapshot(snapshot)
+        insertAuditEvent(
+            PayrollAuditEventEntity(
+                action = "PAYROLL_APPROVED",
+                employeeId = snapshot.employeeId,
+                monthKey = snapshot.monthKey,
+                afterValue = "netSalaryPiasters=${snapshot.netSalaryPiasters};absentDays=${snapshot.absentDays}",
+                createdAtEpochMillis = System.currentTimeMillis()
+            )
+        )
+        return snapshot
+    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveCounter(counter: PayrollReferenceCounter)
@@ -131,13 +184,23 @@ interface PayrollTransactionDao {
                 createdAtEpochMillis = System.currentTimeMillis()
             )
         )
+        insertAuditEvent(
+            PayrollAuditEventEntity(
+                action = "TRANSACTION_CREATED",
+                employeeId = employeeId,
+                monthKey = monthKey,
+                transactionReference = reference,
+                afterValue = "type=${type.name};amountPiasters=${amountPiasters};quantity=${quantity}",
+                createdAtEpochMillis = System.currentTimeMillis()
+            )
+        )
         return reference
     }
 }
 
 @Database(
-    entities = [PayrollTransactionEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class],
-    version = 3,
+    entities = [PayrollTransactionEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class, PayrollAuditEventEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class PayrollDatabase : RoomDatabase() {
@@ -157,6 +220,14 @@ abstract class PayrollDatabase : RoomDatabase() {
                 database.execSQL("CREATE TABLE IF NOT EXISTS payroll_snapshots (employeeId INTEGER NOT NULL, monthKey TEXT NOT NULL, employeeName TEXT NOT NULL, employeeCode TEXT NOT NULL, jobTitle TEXT NOT NULL, baseSalaryPiasters INTEGER NOT NULL, absentDays INTEGER NOT NULL, absenceDeductionPiasters INTEGER NOT NULL, advancesPiasters INTEGER NOT NULL, penaltiesPiasters INTEGER NOT NULL, overtimePiasters INTEGER NOT NULL, bonusesPiasters INTEGER NOT NULL, netSalaryPiasters INTEGER NOT NULL, approvedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(employeeId, monthKey))")
             }
         }
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE TABLE IF NOT EXISTS payroll_audit_events (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, action TEXT NOT NULL, employeeId INTEGER NOT NULL, monthKey TEXT NOT NULL, transactionReference TEXT, beforeValue TEXT, afterValue TEXT NOT NULL, actor TEXT NOT NULL, createdAtEpochMillis INTEGER NOT NULL)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_payroll_audit_events_employeeId_createdAtEpochMillis ON payroll_audit_events(employeeId, createdAtEpochMillis)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_payroll_audit_events_transactionReference ON payroll_audit_events(transactionReference)")
+            }
+        }
+
         @Volatile private var instance: PayrollDatabase? = null
 
         fun get(context: Context): PayrollDatabase = instance ?: synchronized(this) {
@@ -166,7 +237,7 @@ abstract class PayrollDatabase : RoomDatabase() {
                     context.applicationContext,
                     PayrollDatabase::class.java,
                     "golden360_payroll.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build().also { instance = it }
             }
         }
