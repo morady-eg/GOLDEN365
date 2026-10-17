@@ -152,7 +152,8 @@ private fun Golden360App(dao: EmployeeDao) {
                                     "penalties" -> "الجزاءات"
                                     "more" -> "المزيد من الخدمات"
                                     "attendance" -> "الحضور والغياب"
-                                    else -> "إدارة الرواتب والموارد البشرية"
+                                    "payroll" -> "مركز الرواتب والمستحقات"
+                                    else -> "إدارة الموارد البشرية"
                                 },
                                 color = Muted, fontSize = 11.sp
                             )
@@ -188,7 +189,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         bottomBar = {
-            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports) {
                 NavigationBar(containerColor = Color(0xFF171717), contentColor = SoftGold, tonalElevation = 0.dp) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
@@ -216,7 +217,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
@@ -699,11 +700,12 @@ private fun EmployeeListScreen(
 ) {
     var selectedEmployeeIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val visibleEmployees = employees.filter { query.isBlank() || it.fullName.contains(query, true) || it.code.contains(query, true) }
+    LaunchedEffect(query) { selectedEmployeeIds = emptySet() }
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("الموظفون", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("إجمالي الموظفين النشطين: ${employees.size}", color = Muted, fontSize = 12.sp)
+                Text("إجمالي ملفات الموظفين غير المؤرشفة: ${employees.size}", color = Muted, fontSize = 12.sp)
             }
             TextButton(enabled = !loading, onClick = onRefresh) {
                 if (loading) CircularProgressIndicator(Modifier.size(16.dp), color = SoftGold, strokeWidth = 2.dp)
@@ -734,7 +736,7 @@ private fun EmployeeListScreen(
         }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Gold) }
-            employees.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            visibleEmployees.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.Badge, contentDescription = null, tint = Gold, modifier = Modifier.size(46.dp))
                     Text(
@@ -765,6 +767,17 @@ private fun EmployeeListScreen(
                             Column(Modifier.weight(1f).clickable { onEdit(employee) }.padding(vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(employee.fullName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text("${employee.code} • " + (JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle), color = SoftGold, fontSize = 11.sp)
+                                val statusLabel = when (employee.workStatus) {
+                                    "SUSPENDED" -> "موقوف مؤقتًا"
+                                    "TERMINATED" -> "منتهي العمل"
+                                    else -> "على رأس العمل"
+                                }
+                                val statusColor = when (employee.workStatus) {
+                                    "SUSPENDED" -> Color(0xFFFFD27D)
+                                    "TERMINATED" -> Color(0xFFFFA39A)
+                                    else -> Color(0xFF9FD6A4)
+                                }
+                                Text(statusLabel, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("الراتب الأساسي  ${formatMoney(employee.baseSalaryPiasters)} ج.م", color = Muted, fontSize = 12.sp)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
