@@ -60,10 +60,15 @@ import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 
 internal object EmployeeIdCardSpec {
+    // Finished card after trimming (CR80 portrait).
     const val WIDTH_MM = 54
     const val HEIGHT_MM = 86
+    // Artwork size includes bleed as requested; trim box is centered inside it.
+    const val DESIGN_WIDTH_MM = 58
+    const val DESIGN_HEIGHT_MM = 91
+    const val PRINT_DPI = 300
     const val COMPANY_NAME = "GOLDEN SHINE"
-    const val QR_SIZE_PX = 180
+    const val QR_SIZE_PX = 512
 }
 
 @Composable
@@ -168,8 +173,8 @@ private fun printEmployeeIds(context: Context, employees: List<EmployeeEntity>) 
     if (employees.isEmpty()) return
     val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
     val attributes = PrintAttributes.Builder()
-        .setMediaSize(PrintAttributes.MediaSize("GOLDEN_SHINE_ID", "GOLDEN SHINE ID", 2126, 3386))
-        .setResolution(PrintAttributes.Resolution("GOLDEN_SHINE_ID_300", "300 dpi", 300, 300))
+        .setMediaSize(PrintAttributes.MediaSize("GOLDEN_SHINE_ID_BLEED", "GOLDEN SHINE ID 58x91 mm bleed", 2283, 3583))
+        .setResolution(PrintAttributes.Resolution("GOLDEN_SHINE_ID_300", "300 dpi", EmployeeIdCardSpec.PRINT_DPI, EmployeeIdCardSpec.PRINT_DPI))
         .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
         .build()
     printManager.print("GOLDEN SHINE - ${employees.size} employee IDs", EmployeeIdPrintAdapter(context, employees), attributes)
@@ -217,64 +222,140 @@ private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): Stri
     return if (shortened.isEmpty()) "" else "$shortened…"
 }
 private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, height: Float, employee: EmployeeEntity) {
-    val gold = android.graphics.Color.rgb(182, 143, 55)
-    val black = android.graphics.Color.rgb(25, 25, 25)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.color = android.graphics.Color.WHITE
+    val gold = android.graphics.Color.rgb(184, 145, 61)
+    val deepGold = android.graphics.Color.rgb(135, 99, 31)
+    val black = android.graphics.Color.rgb(24, 25, 27)
+    val charcoal = android.graphics.Color.rgb(48, 48, 47)
+    val ivory = android.graphics.Color.rgb(250, 249, 246)
+    val muted = android.graphics.Color.rgb(103, 101, 96)
+    val white = android.graphics.Color.WHITE
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
+    // Full artwork is 58 x 91 mm. The centered trim area is exactly 54 x 86 mm.
+    val trimWidth = width * EmployeeIdCardSpec.WIDTH_MM / EmployeeIdCardSpec.DESIGN_WIDTH_MM
+    val trimHeight = height * EmployeeIdCardSpec.HEIGHT_MM / EmployeeIdCardSpec.DESIGN_HEIGHT_MM
+    val trimLeft = (width - trimWidth) / 2f
+    val trimTop = (height - trimHeight) / 2f
+    val trim = RectF(trimLeft, trimTop, trimLeft + trimWidth, trimTop + trimHeight)
+
+    // Bleed background and restrained gold edge accents.
+    canvas.drawColor(white)
+    paint.color = ivory
     canvas.drawRect(0f, 0f, width, height, paint)
     paint.color = gold
+    canvas.drawRect(0f, 0f, width, height * 0.018f, paint)
+    canvas.drawRect(0f, height * 0.982f, width, height, paint)
+
+    // Card face.
+    paint.color = ivory
+    canvas.drawRoundRect(trim, 3.5f, 3.5f, paint)
+    paint.color = gold
     paint.style = Paint.Style.STROKE
-    paint.strokeWidth = 1.5f
-    canvas.drawRoundRect(RectF(4f, 4f, width - 4f, height - 4f), 5f, 5f, paint)
+    paint.strokeWidth = 0.8f
+    canvas.drawRoundRect(RectF(trim.left + 1.8f, trim.top + 1.8f, trim.right - 1.8f, trim.bottom - 1.8f), 3f, 3f, paint)
     paint.style = Paint.Style.FILL
+
+    // Premium black header with a slim gold rule.
+    val headerBottom = trim.top + trimHeight * 0.205f
     paint.color = black
+    canvas.drawRoundRect(RectF(trim.left, trim.top, trim.right, headerBottom + 4f), 3.5f, 3.5f, paint)
+    canvas.drawRect(trim.left, headerBottom, trim.right, headerBottom + 4f, paint)
+    paint.color = gold
+    canvas.drawRect(trim.left, headerBottom, trim.right, headerBottom + 1.5f, paint)
+
     paint.textAlign = Paint.Align.CENTER
-    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-    paint.textSize = 11f
-    canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, width / 2f, 19f, paint)
+    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    paint.color = gold
+    paint.textSize = trimWidth * 0.072f
+    canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, width / 2f, trim.top + trimHeight * 0.095f, paint)
+    paint.color = white
+    paint.textSize = trimWidth * 0.031f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    canvas.drawText("EMPLOYEE IDENTIFICATION", width / 2f, trim.top + trimHeight * 0.145f, paint)
+
+    // Portrait frame and optional photo.
+    val photoSize = trimWidth * 0.36f
+    val photoLeft = (width - photoSize) / 2f
+    val photoTop = trim.top + trimHeight * 0.245f
+    val photoRect = RectF(photoLeft, photoTop, photoLeft + photoSize, photoTop + photoSize)
+    paint.color = gold
+    canvas.drawRoundRect(RectF(photoRect.left - 2f, photoRect.top - 2f, photoRect.right + 2f, photoRect.bottom + 2f), 5f, 5f, paint)
+    paint.color = android.graphics.Color.rgb(232, 229, 221)
+    canvas.drawRoundRect(photoRect, 4f, 4f, paint)
 
     val photo = employee.profilePhotoUri?.let { uri ->
-        runCatching { decodeSampledBitmap(context, Uri.parse(uri), 512, 512) }.getOrNull()
+        runCatching { decodeSampledBitmap(context, Uri.parse(uri), 640, 640) }.getOrNull()
     }
     if (photo != null) {
-        val size = 52f
-        val left = (width - size) / 2f
-        val top = 27f
         canvas.save()
-        val path = android.graphics.Path().apply { addRoundRect(RectF(left, top, left + size, top + size), 4f, 4f, android.graphics.Path.Direction.CW) }
+        val path = android.graphics.Path().apply {
+            addRoundRect(photoRect, 4f, 4f, android.graphics.Path.Direction.CW)
+        }
         canvas.clipPath(path)
-        canvas.drawBitmap(photo, null, RectF(left, top, left + size, top + size), paint)
+        canvas.drawBitmap(photo, null, photoRect, paint)
         canvas.restore()
         photo.recycle()
     } else {
-        paint.color = android.graphics.Color.LTGRAY
-        canvas.drawRoundRect(RectF(width / 2f - 26f, 27f, width / 2f + 26f, 79f), 4f, 4f, paint)
-        paint.color = black
-        paint.textSize = 6f
-        canvas.drawText("NO PHOTO", width / 2f, 55f, paint)
+        paint.color = charcoal
+        paint.textSize = trimWidth * 0.036f
+        paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        canvas.drawText("GOLDEN SHINE", width / 2f, photoTop + photoSize * 0.54f, paint)
+        paint.color = muted
+        paint.textSize = trimWidth * 0.025f
+        canvas.drawText("EMPLOYEE PHOTO", width / 2f, photoTop + photoSize * 0.64f, paint)
     }
 
+    val nameY = photoRect.bottom + trimHeight * 0.062f
     paint.color = black
-    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-    paint.textSize = 9f
-    canvas.drawText(ellipsizeCentered(employee.fullName, paint, width - 12f), width / 2f, 92f, paint)
-    paint.color = gold
-    paint.textSize = 7f
-    val job = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
-    canvas.drawText(ellipsizeCentered(job, paint, width - 12f), width / 2f, 104f, paint)
-    paint.color = black
-    paint.textSize = 7f
-    canvas.drawText("Employee code: ${employee.code}", width / 2f, 116f, paint)
+    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    paint.textSize = trimWidth * 0.059f
+    canvas.drawText(ellipsizeCentered(employee.fullName, paint, trimWidth - 13f), width / 2f, nameY, paint)
 
+    val job = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
+    paint.color = deepGold
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    paint.textSize = trimWidth * 0.043f
+    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 13f), width / 2f, nameY + trimHeight * 0.052f, paint)
+
+    // Gold pill for the employee code.
+    val codeY = nameY + trimHeight * 0.112f
+    val codePill = RectF(trim.left + trimWidth * 0.13f, codeY - trimHeight * 0.034f, trim.right - trimWidth * 0.13f, codeY + trimHeight * 0.018f)
+    paint.color = android.graphics.Color.rgb(239, 232, 215)
+    canvas.drawRoundRect(codePill, 5f, 5f, paint)
+    paint.color = black
+    paint.textSize = trimWidth * 0.037f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+    canvas.drawText("ID  \${ellipsizeCentered(employee.code, paint, codePill.width() - 10f)}", width / 2f, codeY, paint)
+
+    // QR code kept crisp and surrounded by a quiet zone for reliable scanning.
+    val qrTop = trim.top + trimHeight * 0.725f
+    val qrSize = trimWidth * 0.235f
+    val qrRect = RectF(width / 2f - qrSize / 2f, qrTop, width / 2f + qrSize / 2f, qrTop + qrSize)
+    paint.color = white
+    canvas.drawRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), paint)
     createEmployeeQr(employee.code)?.let { qr ->
-        val qrRect = RectF(width / 2f - 31f, 124f, width / 2f + 31f, 186f)
         canvas.drawBitmap(qr, null, qrRect, paint)
         qr.recycle()
     }
-    paint.color = black
-    paint.textSize = 7f
-    canvas.drawText(employee.code, width / 2f, 197f, paint)
+
+    paint.color = muted
+    paint.textSize = trimWidth * 0.028f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    canvas.drawText("SCAN TO VERIFY ID", width / 2f, qrRect.bottom + trimHeight * 0.032f, paint)
+
+    // Fine gold divider and discreet footer.
+    val dividerY = trim.bottom - trimHeight * 0.075f
     paint.color = gold
-    paint.textSize = 6f
-    canvas.drawText("EMPLOYEE ID", width / 2f, 213f, paint)
+    canvas.drawRect(trim.left + trimWidth * 0.17f, dividerY, trim.right - trimWidth * 0.17f, dividerY + 0.65f, paint)
+    paint.color = deepGold
+    paint.textSize = trimWidth * 0.031f
+    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", width / 2f, trim.bottom - trimHeight * 0.035f, paint)
+
+    // Subtle trim guide remains outside the finished card after cutting.
+    paint.color = android.graphics.Color.rgb(195, 190, 178)
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 0.35f
+    canvas.drawRect(trim, paint)
+    paint.style = Paint.Style.FILL
 }
