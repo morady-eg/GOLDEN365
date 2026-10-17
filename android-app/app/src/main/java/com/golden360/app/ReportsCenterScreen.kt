@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -84,7 +83,8 @@ private enum class ReportKind(val label: String, val fileName: String) {
 private data class ReportPayload(
     val csvRows: List<List<String>>,
     val recordCount: Int,
-    val totalPiasters: Long? = null
+    val totalPiasters: Long? = null,
+    val totalAbsenceDays: Int? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -219,6 +219,8 @@ internal fun ReportsCenterScreen(
                     ReportSummaryTile("عدد السجلات", report.recordCount.toString(), Modifier.weight(1f))
                     if (report.totalPiasters != null) {
                         ReportSummaryTile("إجمالي المبالغ", "${ReportsCsv.formatPiasters(report.totalPiasters)} ج.م", Modifier.weight(1f))
+                    } else if (report.totalAbsenceDays != null) {
+                        ReportSummaryTile("إجمالي أيام الغياب", report.totalAbsenceDays.toString(), Modifier.weight(1f))
                     }
                 }
                 Surface(
@@ -327,9 +329,7 @@ private suspend fun buildReportPayload(
             rows += listOf(employee.fullName, employee.code, month, days.toString(),
                 datedAbsences.joinToString("; ") { it.dateKey }, legacyDays.toString())
         }
-        return ReportPayload(rows, employees.size, null).copy(totalPiasters = null).also {
-            // The absence total is shown in the row data, while the summary counts employees.
-        }
+        return ReportPayload(rows, employees.size, totalAbsenceDays = totalDays.toInt())
     }
 
     val rows = mutableListOf(listOf(
@@ -337,6 +337,12 @@ private suspend fun buildReportPayload(
         "خصم الغياب (ج.م)", "السلف (ج.م)", "الجزاءات (ج.م)", "الورديات الإضافية (ج.م)",
         "المكافآت (ج.م)", "صافي المستحق (ج.م)", "حالة الكشف"
     ))
+    var totalBase = 0L
+    var totalAbsence = 0L
+    var totalAdvances = 0L
+    var totalPenalties = 0L
+    var totalOvertime = 0L
+    var totalBonuses = 0L
     var totalNet = 0L
     employees.forEach { employee ->
         val saved = dao.getPayrollSnapshot(employee.id, month)
@@ -384,6 +390,12 @@ private suspend fun buildReportPayload(
             bonuses = amounts[TransactionType.BONUS] ?: 0L
             net = summary.netSalaryPiasters
         }
+        totalBase = Math.addExact(totalBase, base)
+        totalAbsence = Math.addExact(totalAbsence, absence)
+        totalAdvances = Math.addExact(totalAdvances, advances)
+        totalPenalties = Math.addExact(totalPenalties, penalties)
+        totalOvertime = Math.addExact(totalOvertime, overtime)
+        totalBonuses = Math.addExact(totalBonuses, bonuses)
         totalNet = Math.addExact(totalNet, net)
         rows += listOf(
             employee.fullName, employee.code, month, ReportsCsv.formatPiasters(base), days.toString(),
@@ -394,8 +406,10 @@ private suspend fun buildReportPayload(
         )
     }
     rows += listOf("الإجمالي", "", month,
-        ReportsCsv.formatPiasters(employees.sumOf { employee -> dao.getPayrollSnapshot(employee.id, month)?.baseSalaryPiasters ?: employee.baseSalaryPiasters }),
-        "", "", "", "", "", "", ReportsCsv.formatPiasters(totalNet), "")
+        ReportsCsv.formatPiasters(totalBase), "",
+        ReportsCsv.formatPiasters(totalAbsence), ReportsCsv.formatPiasters(totalAdvances),
+        ReportsCsv.formatPiasters(totalPenalties), ReportsCsv.formatPiasters(totalOvertime),
+        ReportsCsv.formatPiasters(totalBonuses), ReportsCsv.formatPiasters(totalNet), "")
     return ReportPayload(rows, employees.size, totalNet)
 }
 
