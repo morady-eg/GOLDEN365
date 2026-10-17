@@ -76,8 +76,10 @@ internal object BackupManager {
             employeeFile.parentFile?.let { check(it.exists() || it.mkdirs()) { "تعذر الوصول إلى مجلد البيانات" } }
             val employeeRollback = File(staging, "employees.previous")
             val payrollRollback = File(staging, "payroll.previous")
-            if (employeeFile.exists()) check(employeeFile.copyTo(employeeRollback, overwrite = true).exists())
-            if (payrollFile.exists()) check(payrollFile.copyTo(payrollRollback, overwrite = true).exists())
+            val hadEmployeeFile = employeeFile.exists()
+            val hadPayrollFile = payrollFile.exists()
+            if (hadEmployeeFile) check(employeeFile.copyTo(employeeRollback, overwrite = true).exists())
+            if (hadPayrollFile) check(payrollFile.copyTo(payrollRollback, overwrite = true).exists())
 
             val oldEmployeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
             val oldPayrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
@@ -92,8 +94,10 @@ internal object BackupManager {
                 validateEncryptedDatabase(employeeFile, employeePassphrase)
                 validateEncryptedDatabase(payrollFile, payrollPassphrase)
             } catch (error: Exception) {
-                employeeRollback.takeIf { it.exists() }?.copyTo(employeeFile, overwrite = true)
-                payrollRollback.takeIf { it.exists() }?.copyTo(payrollFile, overwrite = true)
+                if (hadEmployeeFile && employeeRollback.exists()) employeeRollback.copyTo(employeeFile, overwrite = true)
+                else employeeFile.delete()
+                if (hadPayrollFile && payrollRollback.exists()) payrollRollback.copyTo(payrollFile, overwrite = true)
+                else payrollFile.delete()
                 runCatching { DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, oldEmployeePassphrase) }
                 runCatching { DatabaseEncryption.installPassphrase(app, PAYROLL_DB, oldPayrollPassphrase) }
                 deleteSidecars(employeeFile)
