@@ -30,4 +30,16 @@ class PayrollSummaryCalculatorTest {
             PayrollSummaryCalculator.calculate(100_000, 0, -1, 0, 0, 0)
         }
     }
+
+    @Test fun handlesZeroAbsenceAndZeroLedgerAmounts() {
+        val result = PayrollSummaryCalculator.calculate(123_456, 0, 0, 0, 0, 0)
+        assertEquals(0L, result.absenceDeductionPiasters)
+        assertEquals(123_456L, result.netSalaryPiasters)
+    }
+
+    @Test fun rejectsArithmeticOverflowInsteadOfSilentlyWrapping() {
+        assertThrows(ArithmeticException::class.java) {
+            PayrollSummaryCalculator.calculate(Long.MAX_VALUE, 2, 0, 0, 0, 0)
+        }
+    }
 }
