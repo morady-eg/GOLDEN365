@@ -73,7 +73,16 @@ interface PayrollTransactionDao {
     @Query("SELECT * FROM monthly_attendance WHERE employeeId = :employeeId AND monthKey = :monthKey LIMIT 1")
     suspend fun getAttendance(employeeId: Long, monthKey: String): MonthlyAttendanceEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun saveAttendance(attendance: MonthlyAttendanceEntity)
+    suspend fun upsertAttendance(attendance: MonthlyAttendanceEntity)
+
+    @Transaction
+    suspend fun saveAttendance(attendance: MonthlyAttendanceEntity) {
+        require(attendance.absentDays in 0..30) { "أيام الغياب يجب أن تكون من 0 إلى 30" }
+        require(getPayrollSnapshot(attendance.employeeId, attendance.monthKey) == null) {
+            "لا يمكن تعديل الغياب بعد اعتماد كشف الراتب"
+        }
+        upsertAttendance(attendance)
+    }
     @Query("SELECT * FROM payroll_snapshots WHERE employeeId = :employeeId AND monthKey = :monthKey LIMIT 1")
     suspend fun getPayrollSnapshot(employeeId: Long, monthKey: String): PayrollSnapshotEntity?
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -99,6 +108,7 @@ interface PayrollTransactionDao {
         require(monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) { "الشهر يجب أن يكون بصيغة YYYY-MM" }
         require(amountPiasters > 0) { "قيمة الحركة يجب أن تكون أكبر من صفر" }
         require(quantity > 0) { "الكمية يجب أن تكون أكبر من صفر" }
+        require(getPayrollSnapshot(employeeId, monthKey) == null) { "لا يمكن إضافة حركة إلى شهر تم اعتماد كشف راتبه" }
         if (type == TransactionType.OVERTIME) {
             require(overtimePlace.isNotBlank()) { "مكان الوردية مطلوب" }
             require(overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) { "موعد الوردية يجب أن يكون HH:mm" }
