@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -85,6 +86,8 @@ private fun Golden360App(dao: EmployeeDao) {
     var editing by remember { mutableStateOf<EmployeeEntity?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var showPayroll by remember { mutableStateOf(false) }
+    var showIdCard by remember { mutableStateOf(false) }
+    var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
     var activeTab by remember { mutableStateOf("home") }
     var loading by remember { mutableStateOf(true) }
@@ -116,7 +119,7 @@ private fun Golden360App(dao: EmployeeDao) {
         containerColor = Black,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            if (!showForm && !showPayroll) {
+            if (!showForm && !showPayroll && !showIdCard) {
                 TopAppBar(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -150,11 +153,11 @@ private fun Golden360App(dao: EmployeeDao) {
                     title = {
                         Column {
                             Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(if (showForm) "ملف الموظف" else selectedType.arabicLabel, color = Muted, fontSize = 12.sp)
+                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { showForm = false; showPayroll = false; editing = null }) {
+                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; selectedIdEmployee = null; editing = null }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "رجوع", tint = Gold)
                         }
                     },
@@ -190,7 +193,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
@@ -217,6 +220,10 @@ private fun Golden360App(dao: EmployeeDao) {
                 onBack = { showPayroll = false },
                 initialType = selectedType
             )
+            showIdCard && selectedIdEmployee != null -> EmployeeIdCardScreen(
+                employee = requireNotNull(selectedIdEmployee),
+                onBack = { showIdCard = false; selectedIdEmployee = null }
+            )
             activeTab == "employees" -> EmployeeListScreen(
                 employees = employees.filter {
                     searchQuery.isBlank() ||
@@ -226,6 +233,7 @@ private fun Golden360App(dao: EmployeeDao) {
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onEdit = { editing = it; showForm = true },
+                onPrintId = { selectedIdEmployee = it; showIdCard = true },
                 onRefresh = { scope.launch { runCatching { refresh() }.onFailure { snackbar.showSnackbar("تعذر تحديث القائمة") } } },
                 searchMode = searchMode,
                 query = searchQuery,
@@ -479,6 +487,7 @@ private fun EmployeeListScreen(
     loading: Boolean,
     modifier: Modifier = Modifier,
     onEdit: (EmployeeEntity) -> Unit,
+    onPrintId: (EmployeeEntity) -> Unit,
     onRefresh: () -> Unit,
     searchMode: Boolean = false,
     query: String = "",
@@ -531,6 +540,9 @@ private fun EmployeeListScreen(
                                 Text("الراتب الأساسي  ${formatMoney(employee.baseSalaryPiasters)} ج.م", color = Muted, fontSize = 12.sp)
                             }
                             Icon(Icons.Default.Edit, contentDescription = "تعديل الموظف", tint = Gold)
+                            androidx.compose.material3.IconButton(onClick = { onPrintId(employee) }) {
+                                Icon(Icons.Default.Print, contentDescription = "طباعة بطاقة الموظف", tint = Gold)
+                            }
                         }
                     }
                 }
