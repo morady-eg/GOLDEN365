@@ -25,14 +25,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+      - name: Validate Gradle Wrapper
+        run: test -x ./gradlew && test -s gradle/wrapper/gradle-wrapper.jar && grep -q 'gradle-8.9-bin.zip' gradle/wrapper/gradle-wrapper.properties
       - name: Run unit tests
-        run: gradle testDebugUnitTest
+        run: ./gradlew --no-daemon testDebugUnitTest
       - name: Build debug APK
-        run: gradle assembleDebug
+        run: ./gradlew --no-daemon assembleDebug
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
