@@ -89,6 +89,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var activeTab by remember { mutableStateOf("home") }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    var searchMode by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -131,7 +132,7 @@ private fun Golden360App(dao: EmployeeDao) {
                     },
                     actions = {
                         if (activeTab == "employees") {
-                            IconButton(onClick = { searchQuery = if (searchQuery.isBlank()) " " else "" }) {
+                            IconButton(onClick = { searchMode = !searchMode; if (!searchMode) searchQuery = "" }) {
                                 Icon(Icons.Default.Search, contentDescription = "بحث", tint = Gold)
                             }
                         }
@@ -212,15 +213,17 @@ private fun Golden360App(dao: EmployeeDao) {
             )
             activeTab == "employees" -> EmployeeListScreen(
                 employees = employees.filter {
-                    searchQuery.isBlank() || searchQuery == " " ||
-                    it.fullName.contains(searchQuery, ignoreCase = true) ||
-                    it.code.contains(searchQuery, ignoreCase = true)
+                    searchQuery.isBlank() ||
+                    it.fullName.contains(searchQuery.trim(), ignoreCase = true) ||
+                    it.code.contains(searchQuery.trim(), ignoreCase = true)
                 },
                 loading = loading,
                 modifier = Modifier.padding(padding),
                 onEdit = { editing = it; showForm = true },
                 onRefresh = { scope.launch { runCatching { refresh() }.onFailure { snackbar.showSnackbar("تعذر تحديث القائمة") } } },
-                searchMode = searchQuery == " "
+                searchMode = searchMode,
+                query = searchQuery,
+                onQueryChange = { searchQuery = it }
             )
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
@@ -471,20 +474,24 @@ private fun EmployeeListScreen(
     modifier: Modifier = Modifier,
     onEdit: (EmployeeEntity) -> Unit,
     onRefresh: () -> Unit,
-    searchMode: Boolean = false
+    searchMode: Boolean = false,
+    query: String = "",
+    onQueryChange: (String) -> Unit = {}
 ) {
-    var query by remember { mutableStateOf("") }
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("الموظفون", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text("إجمالي الموظفين النشطين: ${employees.size}", color = Muted, fontSize = 12.sp)
             }
-            TextButton(onClick = onRefresh) { Text("تحديث", color = SoftGold) }
+            TextButton(enabled = !loading, onClick = onRefresh) {
+                if (loading) CircularProgressIndicator(Modifier.size(16.dp), color = SoftGold, strokeWidth = 2.dp)
+                else Text("تحديث", color = SoftGold)
+            }
         }
         Spacer(Modifier.height(12.dp))
         if (searchMode) {
-            OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
+            OutlinedTextField(value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("ابحث بالاسم أو كود الموظف") }, singleLine = true,
                 shape = RoundedCornerShape(14.dp), colors = fieldColors())
         }
@@ -572,20 +579,19 @@ private fun EmployeeFormScreen(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(if (employee == null) "إضافة موظف" else "تعديل بيانات الموظف", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text("الحقول التي تحمل * إجبارية", color = Muted, fontSize = 13.sp)
-                }
+                        }
             }
             HorizontalDivider(color = Color(0xFF4A3D24))
             SectionTitle("البيانات الأساسية")
             GoldenField("اسم الموظف *", name, { name = it; errors = errors - "fullName" }, errors["fullName"], "الاسم بالكامل")
-            GoldenField("رقم هاتف واتساب", phone, { phone = it }, null, "مثال: 2010XXXXXXXX", KeyboardType.Phone, "اكتب كود الدولة؛ مصر 20")
-            OutlinedFieldBlock("كود الموظف", employee?.code ?: "يُنشأ تلقائيًا عند الحفظ", "مثال: GS_000001")
+            GoldenField("رقم هاتف واتساب", phone, { phone = it }, null, "مثال: 2010XXXXXXXX", KeyboardType.Phone)
+            OutlinedFieldBlock("كود الموظف", employee?.code ?: "يُنشأ تلقائيًا عند الحفظ")
             ExposedDropdownMenuBox(expanded = jobExpanded, onExpandedChange = { jobExpanded = !jobExpanded }) {
                 OutlinedTextField(
                     value = job?.arabicLabel.orEmpty(), onValueChange = {}, readOnly = true,
                     label = { Text("الوظيفة *") }, placeholder = { Text("اختر الوظيفة") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = jobExpanded) },
-                    isError = errors.containsKey("jobTitle"), supportingText = { errors["jobTitle"]?.let { Text(it) } },
+                    isError = errors.containsKey("jobTitle"),
                     modifier = Modifier.fillMaxWidth().menuAnchor(), shape = RoundedCornerShape(14.dp), colors = fieldColors()
                 )
                 ExposedDropdownMenu(expanded = jobExpanded, onDismissRequest = { jobExpanded = false }) {
@@ -603,8 +609,8 @@ private fun EmployeeFormScreen(
             AttachmentRow("بطاقة الرقم القومي — الوجه الأمامي", idFront != null, if (idFront == null) "اختر صورة" else "تغيير") { frontPicker.launch(arrayOf("image/*")) }
             AttachmentRow("بطاقة الرقم القومي — الوجه الخلفي", idBack != null, if (idBack == null) "اختر صورة" else "تغيير") { backPicker.launch(arrayOf("image/*")) }
             SectionTitle("بيانات الأجر")
-            GoldenField("الراتب الأساسي الشهري بالجنيه *", baseSalary, { baseSalary = it; errors = errors - "baseSalary" }, errors["baseSalary"], "مثال: 8000", KeyboardType.Decimal, "يُستخدم في حساب الراتب وخصم الغياب")
-            GoldenField("سعر الوردية الإضافية بالجنيه *", shiftRate, { shiftRate = it; errors = errors - "extraShiftRate" }, errors["extraShiftRate"], "مثال: 250", KeyboardType.Decimal, "سيُستخدم السعر عند تسجيل وردية إضافية")
+            GoldenField("الراتب الأساسي الشهري بالجنيه *", baseSalary, { baseSalary = it; errors = errors - "baseSalary" }, errors["baseSalary"], "مثال: 8000", KeyboardType.Decimal)
+            GoldenField("سعر الوردية الإضافية بالجنيه *", shiftRate, { shiftRate = it; errors = errors - "extraShiftRate" }, errors["extraShiftRate"], "مثال: 250", KeyboardType.Decimal)
             Button(
                 enabled = !saving,
                 onClick = {
@@ -654,24 +660,23 @@ private fun SectionTitle(text: String) {
 @Composable
 private fun GoldenField(
     label: String, value: String, onValueChange: (String) -> Unit,
-    error: String?, placeholder: String, keyboardType: KeyboardType = KeyboardType.Text,
-    helper: String? = null
+    error: String?, placeholder: String, keyboardType: KeyboardType = KeyboardType.Text
 ) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange, label = { Text(label) },
         placeholder = { Text(placeholder, color = Muted) }, modifier = Modifier.fillMaxWidth(),
         singleLine = label != "العنوان",
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType), isError = error != null,
-        supportingText = { if (error != null) Text(error) else if (helper != null) Text(helper, color = Muted) },
+        supportingText = { if (error != null) Text(error) },
         shape = RoundedCornerShape(14.dp), colors = fieldColors()
     )
 }
 
 @Composable
-private fun OutlinedFieldBlock(label: String, value: String, helper: String) {
+private fun OutlinedFieldBlock(label: String, value: String) {
     OutlinedTextField(
         value = value, onValueChange = {}, readOnly = true, label = { Text(label) },
-        modifier = Modifier.fillMaxWidth(), supportingText = { Text(helper, color = Muted) },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp), colors = fieldColors()
     )
 }
