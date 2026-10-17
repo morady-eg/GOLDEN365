@@ -92,6 +92,25 @@ class AttendancePolicyTest {
         assertEquals(2, AttendancePolicy.absentDaysForMonth(month, offDays, absences))
     }
 
+    @Test fun datesBeforeHireAreNotWorkdaysAndDoNotCountAsAbsence() {
+        val hireDate = LocalDate.parse("2026-10-15")
+        val beforeHire = LocalDate.parse("2026-10-10")
+        val month = YearMonth.of(2026, 10)
+        assertEquals(
+            AttendanceDayStatus.NOT_YET_HIRED,
+            AttendancePolicy.status(beforeHire, emptySet(), emptySet(), LocalDate.parse("2026-10-20"), LocalTime.NOON, "08:00", hireDate)
+        )
+        assertEquals(
+            1,
+            AttendancePolicy.absentDaysForMonth(
+                month,
+                emptySet(),
+                setOf(beforeHire, LocalDate.parse("2026-10-16")),
+                hireDate
+            )
+        )
+    }
+
     @Test fun rejectsInvalidShiftStartTime() {
         assertTrue(AttendancePolicy.isValidShiftStartTime("08:30"))
         assertFalse(AttendancePolicy.isValidShiftStartTime("25:30"))
