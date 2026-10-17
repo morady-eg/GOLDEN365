@@ -359,7 +359,7 @@ internal fun PayrollTransactionsScreen(
                     else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.YearMonth.from(java.time.LocalDate.parse(overtimeDate)).toString() }.getOrNull() != month) error = "شهر الحركة يجب أن يطابق شهر تاريخ الوردية"
-                    else if (selectedType == TransactionType.OVERTIME && !overtimeTime.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) error = "اختر موعدًا صحيحًا للوردية"
+                    else if (selectedType == TransactionType.OVERTIME && overtimeTime !in listOf("صباحية", "مسائية")) error = "اختر صباحية أو مسائية للوردية الإضافية"
                     else if (enteredAmount == null || enteredAmount <= 0) error = "أدخل قيمة صحيحة أكبر من صفر"
                     else {
                         error = null
