@@ -69,7 +69,7 @@ interface EmployeeDao {
         require(validation.isValid) { validation.errors.values.joinToString("، ") }
         val now = System.currentTimeMillis()
         val counter = getCounter()?.lastSequence ?: (highestExistingSequence() ?: 0L)
-        val next = counter + 1L
+        val next = Math.addExact(counter, 1L)
         saveCounter(EmployeeCodeCounter(lastSequence = next))
         val rate = requireNotNull(EmployeeValidator.toPiasters(draft.extraShiftRate))
         return insert(
