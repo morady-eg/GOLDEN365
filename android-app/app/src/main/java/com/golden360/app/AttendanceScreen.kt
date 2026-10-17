@@ -142,7 +142,7 @@ internal fun AttendanceScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("غياب مسجل بالتاريخ", color = Muted, fontSize = 11.sp)
-                            Text(absentDates.size.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(absentDates.count { !AttendancePolicy.isWeeklyOff(it, weeklyOffDays) }.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
                         if (legacyAbsentDays > 0) {
                             Column(horizontalAlignment = Alignment.End) {
@@ -167,7 +167,7 @@ internal fun AttendanceScreen(
                     contentPadding = PaddingValues(bottom = 12.dp)
                 ) {
                     items(monthDates, key = { it.toString() }) { date ->
-                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today)
+                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, java.time.LocalTime.now(), selectedEmployee?.shiftStartTime ?: "08:00")
                         val statusLabel = when (status) {
                             AttendanceDayStatus.PAID_WEEKLY_OFF -> "إجازة أسبوعية مدفوعة"
                             AttendanceDayStatus.MANUALLY_ABSENT -> "غياب مسجل — يُخصم حسب سياسة المرتب"
@@ -195,7 +195,7 @@ internal fun AttendanceScreen(
                                         else -> Muted
                                     }, fontSize = 11.sp)
                                 }
-                                if (status != AttendanceDayStatus.PAID_WEEKLY_OFF && !date.isAfter(today)) {
+                                if ((status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) && !date.isAfter(today)) {
                                     TextButton(
                                         enabled = !payrollApproved,
                                         onClick = {
