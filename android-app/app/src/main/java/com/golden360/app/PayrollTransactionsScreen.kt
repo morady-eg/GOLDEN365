@@ -53,13 +53,15 @@ internal fun PayrollTransactionsScreen(
     dao: PayrollTransactionDao,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    initialType: TransactionType = TransactionType.ADVANCE
+    initialType: TransactionType = TransactionType.ADVANCE,
+    initialEmployeeId: Long? = null,
+    initialMonth: String = java.time.YearMonth.now().toString()
 ) {
     var selectedEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var employeeExpanded by remember { mutableStateOf(false) }
     var selectedType by remember(initialType) { mutableStateOf(initialType) }
     var typeExpanded by remember { mutableStateOf(false) }
-    var month by remember { mutableStateOf(YearMonth.now().toString()) }
+    var month by remember { mutableStateOf(initialMonth) }
     var amount by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("1") }
     var note by remember { mutableStateOf("") }
@@ -89,9 +91,12 @@ internal fun PayrollTransactionsScreen(
         pendingPayrollSnapshot = null
     }
 
-    LaunchedEffect(employees) {
-        if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
+    LaunchedEffect(employees, initialEmployeeId) {
+        if (selectedEmployee == null || (initialEmployeeId != null && selectedEmployee?.id != initialEmployeeId)) {
+            selectedEmployee = employees.firstOrNull { it.id == initialEmployeeId } ?: selectedEmployee ?: employees.firstOrNull()
+        }
     }
+    LaunchedEffect(initialMonth) { month = initialMonth }
     LaunchedEffect(selectedEmployee?.id, month) {
         transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = null
         amount = ""; note = ""; overtimePlace = ""; overtimeTime = ""; savedReference = null; whatsappMessage = null
