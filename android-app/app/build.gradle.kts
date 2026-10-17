@@ -12,9 +12,39 @@ android {
         applicationId = "com.golden360.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("ANDROID_VERSION_NAME") ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    signingConfigs {
+        create("release") {
+            val releaseStorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            val releaseStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            if (!releaseStorePath.isNullOrBlank() &&
+                !releaseStorePassword.isNullOrBlank() &&
+                !releaseKeyAlias.isNullOrBlank() &&
+                !releaseKeyPassword.isNullOrBlank()
+            ) {
+                storeFile = file(releaseStorePath)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            val hasReleaseSigning = listOf(
+                "ANDROID_KEYSTORE_PATH",
+                "ANDROID_KEYSTORE_PASSWORD",
+                "ANDROID_KEY_ALIAS",
+                "ANDROID_KEY_PASSWORD"
+            ).all { !System.getenv(it).isNullOrBlank() }
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+        }
     }
     buildFeatures { compose = true }
     compileOptions {

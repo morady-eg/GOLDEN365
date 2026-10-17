@@ -37,7 +37,9 @@ data class PayrollTransactionEntity(
     @ColumnInfo(defaultValue = "''") val overtimePlace: String = "",
     @ColumnInfo(defaultValue = "''") val overtimeDate: String = "",
     @ColumnInfo(defaultValue = "''") val overtimeTime: String = "",
-    val createdAtEpochMillis: Long
+    val createdAtEpochMillis: Long,
+    val voidedAtEpochMillis: Long? = null,
+    val voidReason: String? = null
 )
 
 @Entity(
@@ -90,11 +92,39 @@ interface PayrollTransactionDao {
     @Query("SELECT * FROM payroll_transactions WHERE employeeId = :employeeId AND monthKey = :monthKey ORDER BY createdAtEpochMillis DESC")
     suspend fun getForEmployeeMonth(employeeId: Long, monthKey: String): List<PayrollTransactionEntity>
 
-    @Query("SELECT COALESCE(SUM(amountPiasters), 0) FROM payroll_transactions WHERE employeeId = :employeeId AND monthKey = :monthKey AND type = :type")
+    @Query("SELECT COALESCE(SUM(amountPiasters), 0) FROM payroll_transactions WHERE employeeId = :employeeId AND monthKey = :monthKey AND type = :type AND voidedAtEpochMillis IS NULL")
     suspend fun sumForEmployeeMonth(employeeId: Long, monthKey: String, type: String): Long
 
     @Query("SELECT * FROM payroll_transactions WHERE reference = :reference LIMIT 1")
     suspend fun getByReference(reference: String): PayrollTransactionEntity?
+
+    @Query("UPDATE payroll_transactions SET voidedAtEpochMillis = :voidedAtEpochMillis, voidReason = :reason WHERE reference = :reference AND voidedAtEpochMillis IS NULL")
+    suspend fun markTransactionVoided(reference: String, voidedAtEpochMillis: Long, reason: String): Int
+
+    @Transaction
+    suspend fun voidTransaction(reference: String, reason: String) {
+        require(reference.isNotBlank()) { "الرقم المرجعي للحركة مطلوب" }
+        require(reason.isNotBlank()) { "سبب إلغاء الحركة مطلوب للتدقيق" }
+        val transaction = requireNotNull(getByReference(reference)) { "الحركة غير موجودة" }
+        require(transaction.voidedAtEpochMillis == null) { "الحركة ملغاة بالفعل" }
+        require(getPayrollSnapshot(transaction.employeeId, transaction.monthKey) == null) {
+            "لا يمكن إلغاء حركة بعد اعتماد كشف الراتب"
+        }
+        val now = System.currentTimeMillis()
+        val changed = markTransactionVoided(reference, now, reason.trim())
+        check(changed == 1) { "تعذر إلغاء الحركة؛ ربما تم تعديلها من شاشة أخرى" }
+        insertAuditEvent(
+            PayrollAuditEventEntity(
+                action = "TRANSACTION_VOIDED",
+                employeeId = transaction.employeeId,
+                monthKey = transaction.monthKey,
+                transactionReference = transaction.reference,
+                beforeValue = "type=${transaction.type};amountPiasters=${transaction.amountPiasters};quantity=${transaction.quantity}",
+                afterValue = "voidedAtEpochMillis=${now};reason=${reason.trim()}",
+                createdAtEpochMillis = now
+            )
+        )
+    }
 
     @Query("SELECT * FROM payroll_reference_counters WHERE type = :type LIMIT 1")
     suspend fun getCounter(type: String): PayrollReferenceCounter?
@@ -138,8 +168,14 @@ interface PayrollTransactionDao {
         val allAbsences = getDailyAbsences(employeeId, monthKey)
         val previousMonthlyAttendance = getAttendance(employeeId, monthKey)
         val legacyDays = previousMonthlyAttendance?.legacyAbsentDays ?: 0
-        require(legacyDays + allAbsences.size <= 30) { "إجمالي أيام الغياب لا يمكن أن يتجاوز 30 يومًا في سياسة المرتب الحالية" }
-        upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, legacyDays + allAbsences.size, legacyDays))
+        val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv)
+        val effectiveDatedAbsences = allAbsences.count { row ->
+            !AttendancePolicy.isWeeklyOff(java.time.LocalDate.parse(row.dateKey), weeklyOffDays)
+        }
+        require(legacyDays + effectiveDatedAbsences <= 30) {
+            "إجمالي أيام الغياب لا يمكن أن يتجاوز 30 يومًا في سياسة المرتب الحالية"
+        }
+        upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, legacyDays + effectiveDatedAbsences, legacyDays))
         if ((absent && previous == null) || (!absent && previous != null)) {
             insertAuditEvent(
                 PayrollAuditEventEntity(
@@ -264,7 +300,7 @@ interface PayrollTransactionDao {
 
 @Database(
     entities = [PayrollTransactionEntity::class, DailyAbsenceEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class, PayrollAuditEventEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class PayrollDatabase : RoomDatabase() {
@@ -301,6 +337,13 @@ abstract class PayrollDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE payroll_transactions ADD COLUMN voidedAtEpochMillis INTEGER")
+                database.execSQL("ALTER TABLE payroll_transactions ADD COLUMN voidReason TEXT")
+            }
+        }
+
         @Volatile private var instance: PayrollDatabase? = null
 
         fun get(context: Context): PayrollDatabase = instance ?: synchronized(this) {
@@ -310,7 +353,7 @@ abstract class PayrollDatabase : RoomDatabase() {
                     context.applicationContext,
                     PayrollDatabase::class.java,
                     "golden360_payroll.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build().also { instance = it }
             }
         }

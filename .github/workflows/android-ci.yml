@@ -5,11 +5,20 @@ on:
     paths:
       - "android-app/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
   pull_request:
     paths:
       - "android-app/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -25,15 +34,26 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - name: Validate Gradle Wrapper
         run: test -x ./gradlew && test -s gradle/wrapper/gradle-wrapper.jar && grep -q 'gradle-8.9-bin.zip' gradle/wrapper/gradle-wrapper.properties
       - name: Run unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
-      - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
-      - name: Upload debug APK
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+      - name: Build debug and release variants
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GOLDEN-360-unit-test-reports
+          path: android-app/app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload installable debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: GOLDEN-360-debug-apk
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

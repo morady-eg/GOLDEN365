@@ -18,7 +18,7 @@ object PayrollSummaryCalculator {
         require(listOf(penaltiesPiasters, advancesPiasters, overtimePiasters, bonusesPiasters).all { it >= 0 }) {
             "Ledger amounts cannot be negative"
         }
-        val absenceDeduction = Math.multiplyExact(baseSalaryPiasters, absentDays.toLong()) / 30L
+        val absenceDeduction = AbsenceDeductionCalculator.calculate(baseSalaryPiasters, absentDays)
         val deductions = Math.addExact(Math.addExact(absenceDeduction, penaltiesPiasters), advancesPiasters)
         val additions = Math.addExact(overtimePiasters, bonusesPiasters)
         val net = Math.addExact(Math.subtractExact(baseSalaryPiasters, deductions), additions)

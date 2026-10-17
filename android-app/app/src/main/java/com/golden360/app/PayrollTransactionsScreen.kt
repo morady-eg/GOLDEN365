@@ -82,6 +82,8 @@ internal fun PayrollTransactionsScreen(
     var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     var auditEvents by remember { mutableStateOf<List<PayrollAuditEventEntity>>(emptyList()) }
+    var pendingVoidTransaction by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
+    var voidReason by remember { mutableStateOf("") }
     val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val snapshot = pendingPayrollSnapshot
         if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
@@ -475,15 +477,32 @@ internal fun PayrollTransactionsScreen(
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
                     items(transactions, key = { it.id }) { transaction ->
-                        Surface(color = Panel, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF3D3424))) {
+                        Surface(
+                            color = Panel,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, if (transaction.voidedAtEpochMillis != null) Color(0xFF69413D) else Color(0xFF3D3424))
+                        ) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(transaction.reference, color = SoftGold, fontWeight = FontWeight.Bold)
+                                    Text(transaction.reference, color = if (transaction.voidedAtEpochMillis != null) Muted else SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
                                     if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
+                                    if (transaction.voidedAtEpochMillis != null) {
+                                        Text("ملغاة • السبب: ${transaction.voidReason ?: "—"}", color = Color(0xFFFFA39A), fontSize = 11.sp)
+                                    }
                                 }
-                                Text("${formatMoney(transaction.amountPiasters)} ج.م", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("${formatMoney(transaction.amountPiasters)} ج.م", color = if (transaction.voidedAtEpochMillis != null) Muted else Color.White, fontWeight = FontWeight.SemiBold)
+                                    if (transaction.voidedAtEpochMillis == null && approvedSnapshot == null) {
+                                        TextButton(enabled = !saving, onClick = {
+                                            pendingVoidTransaction = transaction
+                                            voidReason = ""
+                                        }) {
+                                            Text("إلغاء الحركة", color = Color(0xFFFFA39A), fontSize = 11.sp)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -497,6 +516,7 @@ internal fun PayrollTransactionsScreen(
                     Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                         val actionLabel = when (event.action) {
                             "TRANSACTION_CREATED" -> "تسجيل حركة مالية"
+                            "TRANSACTION_VOIDED" -> "إلغاء حركة مالية"
                             "ABSENCE_UPDATED" -> "تعديل أيام الغياب"
                             "ABSENCE_DATE_MARKED" -> "تسجيل غياب بتاريخ"
                             "ABSENCE_DATE_CLEARED" -> "إلغاء غياب بتاريخ"
@@ -508,6 +528,65 @@ internal fun PayrollTransactionsScreen(
                     }
                 }
                 if (auditEvents.size > 20) Text("يُعرض أحدث 20 حدثًا من أصل ${auditEvents.size}.", color = Muted, fontSize = 11.sp)
+            }
+            if (pendingVoidTransaction != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        if (!saving) {
+                            pendingVoidTransaction = null
+                            voidReason = ""
+                        }
+                    },
+                    title = { Text("تأكيد إلغاء الحركة") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("سيتم استبعاد الحركة من إجمالي المرتب مع الاحتفاظ بها في سجل التدقيق. لا يمكن إلغاء الحركة بعد اعتماد كشف الراتب.")
+                            OutlinedTextField(
+                                value = voidReason,
+                                onValueChange = { voidReason = it },
+                                label = { Text("سبب الإلغاء (إجباري)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2,
+                                maxLines = 4,
+                                enabled = !saving
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = !saving && voidReason.isNotBlank(),
+                            onClick = {
+                                val target = pendingVoidTransaction ?: return@TextButton
+                                saving = true
+                                scope.launch {
+                                    runCatching {
+                                        dao.voidTransaction(target.reference, voidReason)
+                                        val updatedTransactions = dao.getForEmployeeMonth(target.employeeId, target.monthKey)
+                                        val updatedTotals = TransactionType.entries.associate { type ->
+                                            type.name to dao.sumForEmployeeMonth(target.employeeId, target.monthKey, type.name)
+                                        }
+                                        val updatedAudit = dao.getAuditEvents(target.employeeId, target.monthKey)
+                                        Triple(updatedTransactions, updatedTotals, updatedAudit)
+                                    }.onSuccess { updated ->
+                                        transactions = updated.first
+                                        monthlyTotals = updated.second
+                                        auditEvents = updated.third
+                                        pendingVoidTransaction = null
+                                        voidReason = ""
+                                        savedReference = null
+                                    }.onFailure { error = "تعذر إلغاء الحركة: ${it.message ?: "خطأ غير معروف"}" }
+                                    saving = false
+                                }
+                            }
+                        ) { Text(if (saving) "جارٍ الإلغاء…" else "تأكيد الإلغاء") }
+                    },
+                    dismissButton = {
+                        TextButton(enabled = !saving, onClick = {
+                            pendingVoidTransaction = null
+                            voidReason = ""
+                        }) { Text("تراجع") }
+                    }
+                )
             }
         }
     }
