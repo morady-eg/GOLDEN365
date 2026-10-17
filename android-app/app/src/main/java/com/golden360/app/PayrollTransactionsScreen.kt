@@ -42,6 +42,7 @@ import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
 import com.golden360.app.data.PhoneNumberFormatter
 import com.golden360.app.data.PayrollSummaryCalculator
+import com.golden360.app.data.PayrollResult
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 
@@ -103,16 +104,21 @@ internal fun PayrollTransactionsScreen(
     }
 
     val payrollSummary = runCatching {
-        val employee = selectedEmployee ?: throw IllegalArgumentException("اختر موظفًا")
-        val absent = absentDays.toIntOrNull() ?: throw IllegalArgumentException("أيام الغياب يجب أن تكون من 0 إلى 30")
-        PayrollSummaryCalculator.calculate(
-            baseSalaryPiasters = employee.baseSalaryPiasters,
-            absentDays = absent,
-            penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
-            advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
-            overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
-            bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L
-        )
+        val snapshot = approvedSnapshot
+        if (snapshot != null) {
+            PayrollResult(snapshot.absenceDeductionPiasters, snapshot.overtimePiasters, snapshot.netSalaryPiasters)
+        } else {
+            val employee = selectedEmployee ?: throw IllegalArgumentException("اختر موظفًا")
+            val absent = absentDays.toIntOrNull() ?: throw IllegalArgumentException("أيام الغياب يجب أن تكون من 0 إلى 30")
+            PayrollSummaryCalculator.calculate(
+                baseSalaryPiasters = employee.baseSalaryPiasters,
+                absentDays = absent,
+                penaltiesPiasters = monthlyTotals[TransactionType.PENALTY.name] ?: 0L,
+                advancesPiasters = monthlyTotals[TransactionType.ADVANCE.name] ?: 0L,
+                overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
+                bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L
+            )
+        }
     }.getOrNull()
 
     val overtimeAmount = runCatching {
@@ -418,12 +424,12 @@ internal fun PayrollTransactionsScreen(
                 Surface(color = Color(0xFF302719), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, Color(0xFF6A5429))) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("ملخص المرتب — ${selectedEmployee!!.fullName}", color = SoftGold, fontWeight = FontWeight.Bold)
-                        Text("الراتب الأساسي: ${formatMoney(selectedEmployee!!.baseSalaryPiasters)} ج.م", color = Color.White, fontSize = 13.sp)
+                        Text("الراتب الأساسي: ${formatMoney(approvedSnapshot?.baseSalaryPiasters ?: selectedEmployee!!.baseSalaryPiasters)} ج.م", color = Color.White, fontSize = 13.sp)
                         Text("خصم الغياب: ${formatMoney(payrollSummary.absenceDeductionPiasters)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("السلف: ${formatMoney(monthlyTotals[TransactionType.ADVANCE.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("الجزاءات: ${formatMoney(monthlyTotals[TransactionType.PENALTY.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("السلف: ${formatMoney(approvedSnapshot?.advancesPiasters ?: (monthlyTotals[TransactionType.ADVANCE.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("الجزاءات: ${formatMoney(approvedSnapshot?.penaltiesPiasters ?: (monthlyTotals[TransactionType.PENALTY.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
                         Text("الورديات الإضافية: ${formatMoney(payrollSummary.overtimePayPiasters)} ج.م", color = Muted, fontSize = 13.sp)
-                        Text("المكافآت: ${formatMoney(monthlyTotals[TransactionType.BONUS.name] ?: 0L)} ج.م", color = Muted, fontSize = 13.sp)
+                        Text("المكافآت: ${formatMoney(approvedSnapshot?.bonusesPiasters ?: (monthlyTotals[TransactionType.BONUS.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
                         HorizontalDivider(color = Color(0xFF6A5429))
                         Text("صافي المرتب: ${formatMoney(payrollSummary.netSalaryPiasters)} ج.م", color = SoftGold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Button(
