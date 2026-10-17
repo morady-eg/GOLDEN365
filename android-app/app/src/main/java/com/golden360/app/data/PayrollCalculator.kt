@@ -45,7 +45,7 @@ object PayrollCalculator {
             "Overtime values cannot be negative"
         }
 
-        val absenceDeduction = (baseSalaryPiasters * absentDays) / DAYS_PER_MONTH
+        val absenceDeduction = Math.multiplyExact(baseSalaryPiasters, absentDays.toLong()) / DAYS_PER_MONTH.toLong()
         val overtimePay = Math.multiplyExact(extraShifts.toLong(), extraShiftRatePiasters)
         val deductions = Math.addExact(Math.addExact(absenceDeduction, penaltiesPiasters), advancesPiasters)
         val additions = Math.addExact(overtimePay, bonusesPiasters)
