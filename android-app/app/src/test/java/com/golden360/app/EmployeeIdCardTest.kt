@@ -24,8 +24,8 @@ class EmployeeIdCardTest {
     fun qrCodeIsGeneratedForEmployeeCode() {
         val matrix = createEmployeeQrMatrix("G365-0042")
 
-        assertEquals(180, matrix.width)
-        assertEquals(180, matrix.height)
+        assertEquals(512, matrix.width)
+        assertEquals(512, matrix.height)
         var blackModules = 0
         for (y in 0 until matrix.height) {
             for (x in 0 until matrix.width) {
