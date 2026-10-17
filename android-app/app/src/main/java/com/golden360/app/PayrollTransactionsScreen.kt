@@ -375,6 +375,7 @@ internal fun PayrollTransactionsScreen(
                                 val currentEmployee = com.golden360.app.data.EmployeeDatabase.get(context).employeeDao().getById(employee.id)
                                  ?: error("الموظف لم يعد موجودًا في قاعدة البيانات")
                              require(!currentEmployee.archived) { "لا يمكن تسجيل حركة مالية لموظف مؤرشف" }
+                             require(selectedType != TransactionType.OVERTIME || enteredAmount == Math.multiplyExact(currentEmployee.extraShiftRatePiasters, count.toLong())) { "تغير سعر الوردية؛ حدّث بيانات الموظف وأعد المحاولة" }
                              dao.create(currentEmployee.id, selectedType, month, enteredAmount, count, note,
                                     overtimePlace = if (selectedType == TransactionType.OVERTIME) overtimePlace else "",
                                     overtimeDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else "",
@@ -461,7 +462,7 @@ internal fun PayrollTransactionsScreen(
                                             overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
                                             bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
                                             netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
-                                        ).also { dao.approvePayrollSnapshot(it) }
+                                        ).let { snapshot -> dao.approvePayrollSnapshot(snapshot).also { auditEvents = dao.getAuditEvents(employee.id, month) } }
                                     }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
                                         .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
                                 }
