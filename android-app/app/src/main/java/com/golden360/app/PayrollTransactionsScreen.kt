@@ -77,6 +77,7 @@ internal fun PayrollTransactionsScreen(
     var savedReference by remember { mutableStateOf<String?>(null) }
     var referenceQuery by remember { mutableStateOf("") }
     var referenceResult by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
+    var referenceEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var referenceSearchMessage by remember { mutableStateOf<String?>(null) }
     var searchingReference by remember { mutableStateOf(false) }
     var sharePayrollPdfAfterSave by remember { mutableStateOf(false) }
@@ -515,9 +516,12 @@ internal fun PayrollTransactionsScreen(
                             runCatching { dao.getByReference(query.uppercase()) }
                                 .onSuccess { result ->
                                     referenceResult = result
+                                    referenceEmployee = if (result != null) {
+                                        runCatching { com.golden360.app.data.EmployeeDatabase.get(context).employeeDao().getById(result.employeeId) }.getOrNull()
+                                    } else null
                                     referenceSearchMessage = if (result == null) "لم يتم العثور على عملية بهذا الرقم المرجعي." else null
                                 }
-                                .onFailure { referenceResult = null; referenceSearchMessage = "تعذر البحث الآن. حاول مرة أخرى." }
+                                .onFailure { referenceResult = null; referenceEmployee = null; referenceSearchMessage = "تعذر البحث الآن. حاول مرة أخرى." }
                             searchingReference = false
                         }
                     }
@@ -528,7 +532,7 @@ internal fun PayrollTransactionsScreen(
             ) { Text(if (searchingReference) "جارٍ البحث..." else "بحث عن العملية", fontWeight = FontWeight.Bold) }
             if (referenceSearchMessage != null) Text(referenceSearchMessage!!, color = Color(0xFFFFA39A), fontSize = 12.sp)
             referenceResult?.let { result ->
-                val employee = employees.firstOrNull { it.id == result.employeeId }
+                val employee = referenceEmployee ?: employees.firstOrNull { it.id == result.employeeId }
                 Surface(
                     color = Color(0xFF302719),
                     shape = RoundedCornerShape(14.dp),
