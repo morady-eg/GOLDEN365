@@ -48,6 +48,9 @@ internal fun PayrollTransactionsScreen(
     var amount by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("1") }
     var note by remember { mutableStateOf("") }
+    var overtimePlace by remember { mutableStateOf("") }
+    var overtimeDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var overtimeTime by remember { mutableStateOf("") }
     var absentDays by remember { mutableStateOf("0") }
     var monthlyTotals by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var transactions by remember { mutableStateOf<List<PayrollTransactionEntity>>(emptyList()) }
@@ -164,8 +167,10 @@ internal fun PayrollTransactionsScreen(
             }
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
             GoldenField("أيام الغياب في الشهر (0 إلى 30)", absentDays, { absentDays = it }, KeyboardType.Number)
-            GoldenField("العدد", quantity, { quantity = it; savedReference = null }, KeyboardType.Number)
             if (selectedType == TransactionType.OVERTIME) {
+                GoldenField("مكان الوردية الإضافية", overtimePlace, { overtimePlace = it; savedReference = null }, KeyboardType.Text)
+                GoldenField("تاريخ الوردية (YYYY-MM-DD)", overtimeDate, { overtimeDate = it; savedReference = null }, KeyboardType.Ascii)
+                GoldenField("موعد الوردية", overtimeTime, { overtimeTime = it; savedReference = null }, KeyboardType.Text)
                 Surface(color = Panel, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF4A3D24))) {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                         Text("قيمة الوردية المحددة للموظف", color = Muted, fontSize = 12.sp)
@@ -208,6 +213,9 @@ internal fun PayrollTransactionsScreen(
                     if (employee == null) error = "اختر موظفًا"
                     else if (!monthValid) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
                     else if (count == null || count <= 0) error = "العدد يجب أن يكون عددًا صحيحًا أكبر من صفر"
+                    else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
+                    else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
+                    else if (selectedType == TransactionType.OVERTIME && overtimeTime.isBlank()) error = "أدخل موعد الوردية الإضافية"
                     else if (enteredAmount == null || enteredAmount <= 0) error = "أدخل قيمة صحيحة أكبر من صفر"
                     else {
                         error = null
@@ -217,11 +225,38 @@ internal fun PayrollTransactionsScreen(
                                 dao.create(employee.id, selectedType, month, enteredAmount, count, note)
                             }.onSuccess { reference ->
                                 savedReference = reference
-                                val typeLabel = selectedType.arabicLabel
                                 val dateLabel = java.time.LocalDate.now().toString()
-                                whatsappMessage = "السلام عليكم ${employee.fullName}،\nتم تسجيل ${typeLabel} على حسابك.\nكود الموظف: ${employee.code}\nالشهر: ${month}\nالقيمة: ${formatMoney(enteredAmount)} ج.م\nالعدد: ${count}\nالتفاصيل: ${note.ifBlank { "لا توجد ملاحظات" }}\nالتاريخ: ${dateLabel}\nالرقم المرجعي: ${reference}\n\nإدارة الموارد البشرية - GOLDEN 360"
+                                val jobLabel = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
+                                whatsappMessage = when (selectedType) {
+                                    TransactionType.OVERTIME -> buildString {
+                                        append("*بيانات الموظف*\n")
+                                        append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
+                                        append("*تفاصيل الوردية الإضافية*\n")
+                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}")
+                                        if (note.isNotBlank()) append("\nملاحظات: ${note.trim()}")
+                                        append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
+                                    }
+                                    TransactionType.PENALTY -> buildString {
+                                        append("*بيانات الموظف*\n")
+                                        append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
+                                        append("*تفاصيل معاملة جزاء*\n")
+                                        append("قيمة الجزاء: ${formatMoney(enteredAmount)} ج.م\nتاريخ التسجيل: ${dateLabel}")
+                                        if (note.isNotBlank()) append("\nسبب الجزاء/الملاحظات: ${note.trim()}")
+                                        append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
+                                    }
+                                    else -> buildString {
+                                        append("*بيانات الموظف*\n")
+                                        append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
+                                        append("*تفاصيل ${selectedType.arabicLabel}*\n")
+                                        append("القيمة: ${formatMoney(enteredAmount)} ج.م\nالشهر: ${month}\nتاريخ التسجيل: ${dateLabel}")
+                                        if (note.isNotBlank()) append("\nملاحظات: ${note.trim()}")
+                                        append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
+                                    }
+                                }
                                 amount = ""
                                 note = ""
+                                overtimePlace = ""
+                                overtimeTime = ""
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
