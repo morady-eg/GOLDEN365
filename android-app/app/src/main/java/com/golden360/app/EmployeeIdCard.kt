@@ -146,8 +146,11 @@ internal fun EmployeeIdCardScreen(
     }
 }
 
+internal fun createEmployeeQrMatrix(code: String) =
+    QRCodeWriter().encode(code.also { require(it.isNotBlank()) }, BarcodeFormat.QR_CODE, 180, 180)
+
 private fun createEmployeeQr(code: String): Bitmap? = runCatching {
-    val matrix = QRCodeWriter().encode(code, BarcodeFormat.QR_CODE, EmployeeIdCardSpec.QR_SIZE_PX, EmployeeIdCardSpec.QR_SIZE_PX)
+    val matrix = createEmployeeQrMatrix(code)
     Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).also { bitmap ->
         for (y in 0 until matrix.height) {
             for (x in 0 until matrix.width) {
