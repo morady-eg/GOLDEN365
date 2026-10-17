@@ -19,6 +19,20 @@ class ReportsCsvTest {
     }
 
     @Test
+    fun csvNeutralizesSpreadsheetFormulasButPreservesNegativeAmounts() {
+        val csv = ReportsCsv.toCsv(
+            listOf(
+                listOf("القيمة"),
+                listOf("=1+1"),
+                listOf("@SUM(A1:A2)"),
+                listOf("-20.00")
+            )
+        )
+
+        assertEquals("\uFEFFالقيمة\r\n'=1+1\r\n'@SUM(A1:A2)\r\n-20.00", csv)
+    }
+
+    @Test
     fun csvPreservesEmptyCellsAndNegativeAmounts() {
         val csv = ReportsCsv.toCsv(listOf(listOf("المرجع", "الصافي", "ملاحظة"), listOf("ADV-001", "-20.00", "")))
 
