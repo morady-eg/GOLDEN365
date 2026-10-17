@@ -47,6 +47,9 @@ class EmployeeValidatorTest {
     @Test fun convertsMoneyToIntegerPiasters() {
         assertEquals(25000L, EmployeeValidator.toPiasters("250"))
         assertEquals(12550L, EmployeeValidator.toPiasters("125.50"))
+        assertEquals(12550L, EmployeeValidator.toPiasters("125,50"))
         assertNull(EmployeeValidator.toPiasters("abc"))
+        assertNull(EmployeeValidator.toPiasters("1.001"))
+        assertNull(EmployeeValidator.toPiasters("999999999999999999999999"))
     }
 }
