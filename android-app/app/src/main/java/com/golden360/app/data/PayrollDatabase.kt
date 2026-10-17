@@ -138,6 +138,7 @@ interface PayrollTransactionDao {
         val allAbsences = getDailyAbsences(employeeId, monthKey)
         val previousMonthlyAttendance = getAttendance(employeeId, monthKey)
         val legacyDays = previousMonthlyAttendance?.legacyAbsentDays ?: 0
+        require(legacyDays + allAbsences.size <= 30) { "إجمالي أيام الغياب لا يمكن أن يتجاوز 30 يومًا في سياسة المرتب الحالية" }
         upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, legacyDays + allAbsences.size, legacyDays))
         if ((absent && previous == null) || (!absent && previous != null)) {
             insertAuditEvent(
