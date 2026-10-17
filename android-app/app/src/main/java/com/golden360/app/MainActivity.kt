@@ -811,6 +811,7 @@ private fun EmployeeAvatar(photoUri: String?, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EmployeeFormScreen(
     employee: EmployeeEntity?,
