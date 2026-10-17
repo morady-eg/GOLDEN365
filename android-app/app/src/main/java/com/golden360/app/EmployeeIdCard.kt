@@ -110,8 +110,8 @@ internal fun EmployeeIdCardScreen(
                     modifier = Modifier.size(104.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF0F0F0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (photo.value != null) {
-                        Image(photo.value!!.asImageBitmap(), contentDescription = "الصورة الشخصية للموظف", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    if (photo != null) {
+                        Image(photo.asImageBitmap(), contentDescription = "الصورة الشخصية للموظف", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     } else {
                         Text("بدون صورة", color = Color.DarkGray, fontSize = 12.sp)
                     }
