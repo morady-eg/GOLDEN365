@@ -56,12 +56,16 @@ internal fun PayrollOverviewScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var pendingReport by remember { mutableStateOf<Pair<String, List<PayrollReportEmployee>>?>(null) }
+    var shareMonthlyPdfAfterSave by remember { mutableStateOf(false) }
     val monthlyPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val report = pendingReport
         if (uri != null && report != null) {
-            runCatching { PayrollReportPdf.writeMonthly(context, uri, report.first, report.second) }
-                .onFailure { error = "تعذر إنشاء كشف الرواتب PDF: ${it.message ?: "خطأ غير معروف"}" }
+            runCatching {
+                PayrollReportPdf.writeMonthly(context, uri, report.first, report.second)
+                if (shareMonthlyPdfAfterSave) shareMonthlyPdfFile(context, uri)
+            }.onFailure { error = "تعذر إنشاء/مشاركة كشف الرواتب PDF: ${it.message ?: "خطأ غير معروف"}" }
         }
+        shareMonthlyPdfAfterSave = false
         pendingReport = null
     }
 
@@ -173,6 +177,7 @@ internal fun PayrollOverviewScreen(
         }
         Button(
             onClick = {
+                shareMonthlyPdfAfterSave = true
                 pendingReport = month.toString() to rows.map { row ->
                     PayrollReportEmployee(
                         name = row.employee.fullName,
@@ -196,7 +201,7 @@ internal fun PayrollOverviewScreen(
         ) {
             Icon(Icons.Default.ReceiptLong, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("تصدير كشف الرواتب المجمّع PDF", fontWeight = FontWeight.Bold)
+            Text("حفظ ومشاركة كشف الرواتب PDF", fontWeight = FontWeight.Bold)
         }
         Button(onClick = { onOpenTransactions(TransactionType.ADVANCE, null, month.toString()) }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)) {
             Icon(Icons.Default.ReceiptLong, contentDescription = null)
@@ -310,3 +315,13 @@ private fun AmountLine(label: String, amountPiasters: Long, positive: Boolean = 
 }
 
 private fun money(piasters: Long): String = String.format(Locale.US, "%,.2f ج.م", piasters / 100.0)
+
+private fun shareMonthlyPdfFile(context: android.content.Context, uri: android.net.Uri) {
+    val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/pdf"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        clipData = android.content.ClipData.newUri(context.contentResolver, "كشف الرواتب", uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(android.content.Intent.createChooser(sendIntent, "مشاركة كشف الرواتب PDF"))
+}
