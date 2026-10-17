@@ -16,7 +16,9 @@ data class EmployeeDraft(
     val nationalIdFrontUri: String? = null,
     val nationalIdBackUri: String? = null,
     val extraShiftRate: String,
-    val baseSalary: String = ""
+    val baseSalary: String = "",
+    val shiftStartTime: String = "08:00",
+    val weeklyOffDays: Set<java.time.DayOfWeek> = emptySet()
 )
 
 data class Employee(
@@ -46,6 +48,7 @@ object EmployeeValidator {
         val errors = linkedMapOf<String, String>()
         if (draft.fullName.trim().isEmpty()) errors["fullName"] = "اسم الموظف إجباري"
         if (draft.jobTitle == null) errors["jobTitle"] = "اختر الوظيفة"
+        if (!AttendancePolicy.isValidShiftStartTime(draft.shiftStartTime)) errors["shiftStartTime"] = "موعد بداية الوردية يجب أن يكون بصيغة HH:mm"
         validatePositiveMoney(draft.baseSalary, "baseSalary", "الراتب الأساسي", errors)
         validatePositiveMoney(draft.extraShiftRate, "extraShiftRate", "سعر الوردية الإضافية", errors)
         val phoneDigits = draft.phone.filter { it.isDigit() }
