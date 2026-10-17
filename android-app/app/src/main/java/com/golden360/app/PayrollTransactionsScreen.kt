@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.golden360.app.data.EmployeeEntity
+import com.golden360.app.data.JobTitle
 import com.golden360.app.data.PayrollTransactionDao
 import com.golden360.app.data.PayrollTransactionEntity
 import com.golden360.app.data.TransactionType
