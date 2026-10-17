@@ -325,11 +325,11 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = black
     paint.textSize = trimWidth * 0.037f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("ID  \${ellipsizeCentered(employee.code, paint, codePill.width() - 10f)}", width / 2f, codeY, paint)
+    canvas.drawText("ID  ${ellipsizeCentered(employee.code, paint, codePill.width() - 10f)}", width / 2f, codeY, paint)
 
     // QR code kept crisp and surrounded by a quiet zone for reliable scanning.
-    val qrTop = trim.top + trimHeight * 0.725f
-    val qrSize = trimWidth * 0.235f
+    val qrTop = trim.top + trimHeight * 0.700f
+    val qrSize = trimWidth * 0.280f
     val qrRect = RectF(width / 2f - qrSize / 2f, qrTop, width / 2f + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), paint)
