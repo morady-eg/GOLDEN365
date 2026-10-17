@@ -151,7 +151,13 @@ internal fun AttendanceScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("غياب مسجل بالتاريخ", color = Muted, fontSize = 11.sp)
-                            Text(AttendancePolicy.absentDaysForMonth(month, weeklyOffDays, absentDates, selectedEmployee?.hireDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ).toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(AttendancePolicy.absentDaysForMonth(
+                                month, weeklyOffDays, absentDates,
+                                selectedEmployee?.hireDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                                selectedEmployee?.workStatus ?: "ACTIVE",
+                                selectedEmployee?.statusEffectiveDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                                selectedEmployee?.suspensionPeriods.orEmpty()
+                            ).toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
                         if (legacyAbsentDays > 0) {
                             Column(horizontalAlignment = Alignment.End) {
