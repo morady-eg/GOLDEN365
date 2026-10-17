@@ -183,10 +183,10 @@ internal fun EmployeeIdCardScreen(
 }
 
 internal fun employeeJobTitleEnglish(jobTitle: String): String = when (jobTitle.uppercase(java.util.Locale.ROOT)) {
-    "ADMIN" -> "ADMINISTRATOR"
-    "SUPERVISOR" -> "SUPERVISOR"
-    "TECHNICIAN" -> "TECHNICIAN"
-    "ASSISTANT" -> "ASSISTANT"
+    "ADMIN", "إداري" -> "ADMINISTRATOR"
+    "SUPERVISOR", "مشرف" -> "SUPERVISOR"
+    "TECHNICIAN", "فني" -> "TECHNICIAN"
+    "ASSISTANT", "مساعد" -> "ASSISTANT"
     else -> jobTitle.replace('_', ' ').uppercase(java.util.Locale.ROOT)
 }
 
