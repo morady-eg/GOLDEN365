@@ -6,12 +6,21 @@
 - اتصال بالإنترنت لتنزيل تبعيات Gradle
 
 ## تشغيل الاختبارات والبناء
-من هذا المجلد:
+من هذا المجلد استخدم الـ Wrapper المرفق حتى تكون نسخة Gradle ثابتة:
 ```bash
-gradle testDebugUnitTest
-gradle assembleDebug
+./gradlew --no-daemon testDebugUnitTest
+./gradlew --no-daemon assembleDebug
 ```
-ينفذ workflow في `.github/workflows/android-ci.yml` الاختبارات ويبني APK تجريبيًا.
+ينفذ workflow في `.github/workflows/android-ci.yml` الاختبارات ويبني APK تجريبيًا موقّعًا بمفتاح Debug، ويرفعه كـ Artifact من GitHub Actions.
+
+## إصدار Release موقّع
+الملف `.github/workflows/android-release.yml` يجهز إصدار Release موقّعًا عند تشغيله يدويًا أو دفع tag يبدأ بـ `v`. يجب إعداد GitHub Actions Secrets التالية من إعدادات المستودع قبل تشغيله:
+- `ANDROID_KEYSTORE_BASE64`: محتوى ملف keystore مشفرًا بـ Base64.
+- `ANDROID_KEYSTORE_PASSWORD`: كلمة مرور keystore.
+- `ANDROID_KEY_ALIAS`: اسم المفتاح داخل keystore.
+- `ANDROID_KEY_PASSWORD`: كلمة مرور المفتاح.
+
+لا تضع ملف keystore أو كلمات المرور داخل المستودع. إذا لم تُضبط الأسرار، يتوقف workflow برسالة خطأ بدل إنتاج ملف غير موقّع على أنه إصدار نهائي. احتفظ بنسخة آمنة من keystore وكلمات المرور؛ فقدانها قد يمنع تحديث التطبيق المثبت بنفس هوية التوقيع.
 
 ## البيانات
 - تحفظ الحركات في Room داخل `golden360_payroll.db`.
