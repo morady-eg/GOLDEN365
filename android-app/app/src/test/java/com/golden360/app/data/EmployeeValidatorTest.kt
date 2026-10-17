@@ -41,6 +41,12 @@ class EmployeeValidatorTest {
         assertFalse(EmployeeValidator.validate(validDraft().copy(hireDate = "2025-12-31")).errors.containsKey("hireDate"))
     }
 
+    @Test fun normalizesEgyptianWhatsappNumbersToInternationalFormat() {
+        assertEquals("201012345678", PhoneNumberFormatter.normalizeWhatsappPhone("01012345678"))
+        assertEquals("201012345678", PhoneNumberFormatter.normalizeWhatsappPhone("+20 10 1234 5678"))
+        assertNull(PhoneNumberFormatter.normalizeWhatsappPhone("not-a-phone"))
+    }
+
     @Test fun validatesNationalIdWhenProvided() {
         assertTrue(EmployeeValidator.validate(validDraft().copy(nationalId = "123")).errors.containsKey("nationalId"))
         assertFalse(EmployeeValidator.validate(validDraft().copy(nationalId = "12345678901234")).errors.containsKey("nationalId"))
