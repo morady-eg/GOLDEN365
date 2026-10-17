@@ -61,8 +61,9 @@ internal fun ExecutiveDashboardScreen(
     var summary by remember { mutableStateOf(DashboardMonthSummary()) }
     var summaryLoading by remember { mutableStateOf(true) }
     var summaryError by remember { mutableStateOf(false) }
+    var refreshToken by remember { mutableStateOf(0) }
 
-    LaunchedEffect(employees, monthKey) {
+    LaunchedEffect(employees, monthKey, refreshToken) {
         summaryLoading = true
         summaryError = false
         try {
@@ -76,9 +77,20 @@ internal fun ExecutiveDashboardScreen(
                     val attendance = dao.getAttendance(employee.id, monthKey)
                     val absences = dao.getDailyAbsences(employee.id, monthKey)
                     val weeklyOff = AttendancePolicy.parseWeeklyOffDays(employee.weeklyOffDays)
-                    val absentDays = (attendance?.legacyAbsentDays ?: 0) + absences.count { row ->
-                        !AttendancePolicy.isWeeklyOff(LocalDate.parse(row.dateKey), weeklyOff)
-                    }
+                    val hireDate = employee.hireDate?.takeIf { it.isNotBlank() }
+                        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                    val statusDate = employee.statusEffectiveDate?.takeIf { it.isNotBlank() }
+                        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                    val absentDays = AttendancePolicy.effectiveAbsentDaysForMonth(
+                        month,
+                        weeklyOff,
+                        absences.mapNotNull { row -> runCatching { LocalDate.parse(row.dateKey) }.getOrNull() }.toSet(),
+                        attendance?.legacyAbsentDays ?: 0,
+                        hireDate,
+                        employee.workStatus,
+                        statusDate,
+                        employee.suspensionPeriods
+                    )
                     absencesTotal += absentDays
                     val amounts = TransactionType.entries.associateWith { type ->
                         dao.sumForEmployeeMonth(employee.id, monthKey, type.name)
@@ -169,7 +181,7 @@ internal fun ExecutiveDashboardScreen(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DashboardMetric("الموظفون", if (loading) "—" else employees.size.toString(), "ملف نشط", Icons.Default.People, Modifier.weight(1f))
+            DashboardMetric("ملفات الموظفين", if (loading) "—" else employees.size.toString(), "غير مؤرشفة", Icons.Default.People, Modifier.weight(1f))
             DashboardMetric("اعتماد الرواتب", if (summaryLoading) "—" else "${summary.approvedEmployees} / ${employees.size}", "موظف معتمد", Icons.Default.ReceiptLong, Modifier.weight(1f))
         }
         Surface(
@@ -208,7 +220,26 @@ internal fun ExecutiveDashboardScreen(
             Spacer(Modifier.width(8.dp))
             Text("إضافة موظف جديد")
         }
-        if (summaryError) Text("حدث خطأ أثناء قراءة ملخص الشهر. لم يتم عرض أرقام تقديرية.", color = Color(0xFFFFA39A), fontSize = 12.sp)
+        if (summaryError) {
+            Surface(
+                color = Color(0xFF241615),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Color(0xFF80443F)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تعذر تحديث ملخص الشهر", color = Color(0xFFFFB3A8), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("لم نعرض أرقامًا تقديرية. يمكنك إعادة المحاولة دون مغادرة الصفحة.", color = Muted, fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = { refreshToken++ },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftGold)
+                    ) {
+                        Text("إعادة المحاولة")
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
