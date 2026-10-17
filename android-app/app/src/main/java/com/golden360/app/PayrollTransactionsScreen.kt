@@ -615,58 +615,7 @@ private fun GoldenField(label: String, value: String, onValueChange: (String) ->
 private fun formatMoney(piasters: Long): String = java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
 
 private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: PayrollSnapshotEntity) {
-    val document = PdfDocument()
-    try {
-        val width = 595; val height = 842
-        val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
-        val canvas = page.canvas; canvas.drawColor(android.graphics.Color.WHITE)
-        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.rgb(30, 30, 30)
-            textAlign = Paint.Align.CENTER
-            textSize = 20f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-        canvas.drawText("GOLDEN SHINE", width / 2f, 55f, headerPaint)
-        headerPaint.textSize = 16f
-        canvas.drawText("كشف راتب معتمد", width / 2f, 88f, headerPaint)
-        val rows = listOf(
-            "اسم الموظف: ${snapshot.employeeName}",
-            "كود الموظف: ${snapshot.employeeCode}",
-            "المسمى الوظيفي: ${snapshot.jobTitle}",
-            "شهر المرتب: ${snapshot.monthKey}",
-            "الراتب الأساسي: ${formatMoney(snapshot.baseSalaryPiasters)} ج.م",
-            "أيام الغياب: ${snapshot.absentDays}",
-            "خصم الغياب: ${formatMoney(snapshot.absenceDeductionPiasters)} ج.م",
-            "السلف: ${formatMoney(snapshot.advancesPiasters)} ج.م",
-            "الجزاءات: ${formatMoney(snapshot.penaltiesPiasters)} ج.م",
-            "الورديات الإضافية: ${formatMoney(snapshot.overtimePiasters)} ج.م",
-            "المكافآت: ${formatMoney(snapshot.bonusesPiasters)} ج.م",
-            "صافي المرتب: ${formatMoney(snapshot.netSalaryPiasters)} ج.م",
-            "تاريخ الاعتماد: ${java.time.Instant.ofEpochMilli(snapshot.approvedAtEpochMillis)}",
-            "هذه نسخة محفوظة ولا يعاد حسابها تلقائيًا."
-        )
-        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.rgb(35, 35, 35)
-            textSize = 14f
-        }
-        var y = 122f
-        rows.forEachIndexed { index, row ->
-            textPaint.textSize = if (index == 11) 18f else 14f
-            textPaint.typeface = if (index == 11) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            textPaint.color = if (index == 11) android.graphics.Color.rgb(145, 105, 25) else android.graphics.Color.rgb(35, 35, 35)
-            val layout = StaticLayout.Builder.obtain(row, 0, row.length, textPaint, width - 96)
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                .setTextDirection(TextDirectionHeuristics.RTL)
-                .build()
-            canvas.save()
-            canvas.translate(48f, y)
-            layout.draw(canvas)
-            canvas.restore()
-            y += layout.height + if (index == 11) 20f else 12f
-        }
-        document.finishPage(page)
-        context.contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
-    } finally { document.close() }
+    PayrollReportPdf.writeIndividual(context, uri, snapshot)
 }
 
 @Composable
