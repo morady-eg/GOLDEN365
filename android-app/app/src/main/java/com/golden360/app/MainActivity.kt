@@ -277,6 +277,7 @@ private fun Golden360App(dao: EmployeeDao) {
                 employees = employees,
                 dao = PayrollDatabase.get(LocalContext.current).transactions(),
                 modifier = Modifier.padding(padding),
+                initialMonth = payrollInitialMonth,
                 onOpenTransactions = { type, employeeId, selectedMonth ->
                     selectedType = type
                     selectedPayrollEmployeeId = employeeId
