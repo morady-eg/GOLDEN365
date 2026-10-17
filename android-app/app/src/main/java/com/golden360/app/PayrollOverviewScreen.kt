@@ -47,6 +47,7 @@ internal fun PayrollOverviewScreen(
 
     LaunchedEffect(employees, month, refreshToken) {
         loading = true
+        rows = emptyList()
         error = null
         try {
             rows = withContext(Dispatchers.IO) {
@@ -69,7 +70,7 @@ internal fun PayrollOverviewScreen(
                         )
                     } else {
                         val summary = PayrollSummaryCalculator.calculate(
-                            employee.baseSalaryPiasters, absentDays.coerceIn(0, 30),
+                            employee.baseSalaryPiasters, absentDays,
                             amounts[TransactionType.PENALTY] ?: 0L,
                             amounts[TransactionType.ADVANCE] ?: 0L,
                             amounts[TransactionType.OVERTIME] ?: 0L,
