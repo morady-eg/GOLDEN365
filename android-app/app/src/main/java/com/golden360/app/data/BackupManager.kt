@@ -38,16 +38,21 @@ internal object BackupManager {
             val payrollFile = app.getDatabasePath(PAYROLL_DB)
             check(employeeFile.isFile && employeeFile.length() > 0L) { "قاعدة بيانات الموظفين غير موجودة" }
             check(payrollFile.isFile && payrollFile.length() > 0L) { "قاعدة بيانات الرواتب غير موجودة" }
+            validateBackupSizes(employeeFile.length(), payrollFile.length())
+            val employeeBytes = employeeFile.readBytes()
+            val payrollBytes = payrollFile.readBytes()
             val zip = ByteArrayOutputStream()
             ZipOutputStream(zip).use { out ->
                 addEntry(out, "format.txt", "GOLDEN360_BACKUP_V1".toByteArray(StandardCharsets.UTF_8))
-                addEntry(out, "employees.db", employeeFile.readBytes())
+                addEntry(out, "employees.db", employeeBytes)
                 addEntry(out, "employees.key", employeePassphrase.toByteArray(StandardCharsets.UTF_8))
-                addEntry(out, "payroll.db", payrollFile.readBytes())
+                addEntry(out, "payroll.db", payrollBytes)
                 addEntry(out, "payroll.key", payrollPassphrase.toByteArray(StandardCharsets.UTF_8))
             }
-            check(zip.size() <= MAX_BACKUP_BYTES) { "حجم النسخة الاحتياطية أكبر من الحد المسموح" }
-            return BackupCrypto.encrypt(zip.toByteArray(), password)
+            validateBackupSizes(employeeBytes.size.toLong(), payrollBytes.size.toLong(), zip.size().toLong())
+            val encrypted = BackupCrypto.encrypt(zip.toByteArray(), password)
+            validateBackupSizes(employeeBytes.size.toLong(), payrollBytes.size.toLong(), zip.size().toLong(), encrypted.size.toLong())
+            return encrypted
         } finally {
             reopenDatabases(app)
         }
@@ -82,8 +87,8 @@ internal object BackupManager {
             val payrollRollback = File(staging, "payroll.previous")
             val hadEmployeeFile = employeeFile.exists()
             val hadPayrollFile = payrollFile.exists()
-            val oldEmployeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
-            val oldPayrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
+            val oldEmployeePassphrase = runCatching { DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB) }.getOrNull()
+            val oldPayrollPassphrase = runCatching { DatabaseEncryption.currentPassphrase(app, PAYROLL_DB) }.getOrNull()
 
             // Close Room before taking rollback copies so committed WAL contents are checkpointed
             // into the database files. Copying the main DB while it is open can make rollback stale.
@@ -105,8 +110,16 @@ internal object BackupManager {
                     else employeeFile.delete()
                     if (hadPayrollFile && payrollRollback.exists()) payrollRollback.copyTo(payrollFile, overwrite = true)
                     else payrollFile.delete()
-                    runCatching { DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, oldEmployeePassphrase) }
-                    runCatching { DatabaseEncryption.installPassphrase(app, PAYROLL_DB, oldPayrollPassphrase) }
+                    if (oldEmployeePassphrase != null) {
+                        runCatching { DatabaseEncryption.installPassphrase(app, EMPLOYEE_DB, oldEmployeePassphrase) }
+                    } else {
+                        runCatching { DatabaseEncryption.clearPassphrase(app, EMPLOYEE_DB) }
+                    }
+                    if (oldPayrollPassphrase != null) {
+                        runCatching { DatabaseEncryption.installPassphrase(app, PAYROLL_DB, oldPayrollPassphrase) }
+                    } else {
+                        runCatching { DatabaseEncryption.clearPassphrase(app, PAYROLL_DB) }
+                    }
                     deleteSidecars(employeeFile)
                     deleteSidecars(payrollFile)
                     throw IllegalStateException("فشلت الاستعادة؛ تمت محاولة إعادة البيانات السابقة دون حذف النسخة الاحتياطية", error)
@@ -117,6 +130,22 @@ internal object BackupManager {
         } finally {
             staging.deleteRecursively()
             plainZip.fill(0)
+        }
+    }
+
+    internal fun validateBackupSizes(
+        employeeBytes: Long,
+        payrollBytes: Long,
+        zipBytes: Long? = null,
+        encryptedBytes: Long? = null
+    ) {
+        require(employeeBytes in 1..MAX_ENTRY_BYTES.toLong()) { "حجم قاعدة بيانات الموظفين يتجاوز الحد المسموح" }
+        require(payrollBytes in 1..MAX_ENTRY_BYTES.toLong()) { "حجم قاعدة بيانات الرواتب يتجاوز الحد المسموح" }
+        if (zipBytes != null) require(zipBytes in 1..MAX_BACKUP_BYTES.toLong()) {
+            "حجم النسخة الاحتياطية أكبر من الحد المسموح"
+        }
+        if (encryptedBytes != null) require(encryptedBytes in 1..MAX_BACKUP_BYTES.toLong()) {
+            "حجم ملف النسخة الاحتياطية المشفر أكبر من الحد المسموح"
         }
     }
 

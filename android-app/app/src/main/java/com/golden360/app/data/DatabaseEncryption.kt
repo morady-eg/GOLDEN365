@@ -43,6 +43,18 @@ internal object DatabaseEncryption {
         return getOrCreatePassphrase(context.applicationContext, databaseName)
     }
 
+    /** Removes an unusable wrapped key when a failed restore rolls the database back. */
+    @Synchronized
+    internal fun clearPassphrase(context: Context, databaseName: String) {
+        require(databaseName == "golden360.db" || databaseName == "golden360_payroll.db") {
+            "اسم قاعدة البيانات غير مسموح"
+        }
+        check(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit().remove("wrapped.$databaseName").commit()) {
+            "تعذر تنظيف مفتاح قاعدة البيانات غير الصالح"
+        }
+    }
+
     /** Re-wraps a restored SQLCipher passphrase with this device's Android Keystore key. */
     @Synchronized
     internal fun installPassphrase(context: Context, databaseName: String, passphrase: String) {

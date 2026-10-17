@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.golden360.app.data.EmployeeEntity
-import com.golden360.app.data.JobTitle
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.Dispatchers
@@ -98,54 +97,76 @@ internal fun EmployeeIdCardScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
-            Text(if (employees.size == 1) "بطاقة هوية الموظف" else "معاينة طباعة ${employees.size} بطاقة", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "EMPLOYEE ID CARD" else "PREVIEW ${employees.size} EMPLOYEE ID CARDS", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         Surface(
-            modifier = Modifier.weight(1f, fill = false).fillMaxWidth(0.78f).aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
-            color = Color.White,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 8.dp
+            modifier = Modifier.weight(1f, fill = false)
+                .fillMaxWidth(0.78f)
+                .aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
+            color = Color(0xFF171717),
+            shape = RoundedCornerShape(10.dp),
+            shadowElevation = 10.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6B15C))
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(9.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFF18191B), RoundedCornerShape(6.dp)).padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF090909), RoundedCornerShape(5.dp)).padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(EmployeeIdCardSpec.COMPANY_NAME, color = Color(0xFFB8913D), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp)
-                        Text("EMPLOYEE IDENTIFICATION", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("GOLDEN SHINE", color = Color(0xFFE0BE69), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
+                        Text("EMPLOYEE IDENTITY", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.3.sp)
                     }
                 }
                 Box(
-                    modifier = Modifier.size(104.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF0F0F0)),
+                    modifier = Modifier.size(92.dp).clip(RoundedCornerShape(7.dp))
+                        .background(Color(0xFFECE7DB)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (photo != null) {
-                        Image(photo.asImageBitmap(), contentDescription = if (employee.profilePhotoUri.isNullOrBlank()) "الصورة الافتراضية للموظف" else "الصورة الشخصية للموظف", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        Image(
+                            photo.asImageBitmap(),
+                            contentDescription = if (employee.profilePhotoUri.isNullOrBlank()) "DEFAULT EMPLOYEE PHOTO" else "EMPLOYEE PHOTO",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
                     }
                 }
-                Text(employee.fullName, color = Color(0xFF151515), fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Text(JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle, color = Color(0xFF6B5428), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                Text(
+                    employee.fullName.uppercase(java.util.Locale.ROOT),
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+                Text(
+                    employeeJobTitleEnglish(employee.jobTitle),
+                    color = Color(0xFFE0BE69),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFFF0E8D7), RoundedCornerShape(8.dp)).padding(vertical = 5.dp),
-                    horizontalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF29251C), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("كود الموظف: ", color = Color(0xFF6B5428), fontSize = 11.sp)
-                    Text(employee.code, color = Color(0xFF18191B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("EMPLOYEE NO.  ", color = Color(0xFFC6B78F), fontSize = 8.sp)
+                    Text(employee.code, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
                 if (qr != null) {
-                    Image(qr.asImageBitmap(), contentDescription = "باركود QR لكود الموظف", modifier = Modifier.size(88.dp))
+                    Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(61.dp))
                 }
-                Text(employee.code, color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(2.dp))
-                Text("EMPLOYEE ID", color = Color(0xFF8B6A28), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("SCAN TO IDENTIFY", color = Color(0xFFC6B78F), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        Text("مقاس البطاقة: 54 × 86 مم • خلفية بيضاء", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
+        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
         Button(
             onClick = { printEmployeeIds(context, employees) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -153,12 +174,20 @@ internal fun EmployeeIdCardScreen(
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
         ) {
             Icon(Icons.Default.Print, contentDescription = null)
-            Text(if (employees.size == 1) "طباعة بطاقة الموظف" else "طباعة ${employees.size} بطاقة معًا", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
+            Text(if (employees.size == 1) "PRINT EMPLOYEE ID" else "PRINT ${employees.size} EMPLOYEE IDS", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
         }
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Text("رجوع", color = SoftGold)
+            Text("BACK", color = SoftGold)
         }
     }
+}
+
+internal fun employeeJobTitleEnglish(jobTitle: String): String = when (jobTitle.uppercase(java.util.Locale.ROOT)) {
+    "ADMIN", "إداري" -> "ADMINISTRATOR"
+    "SUPERVISOR", "مشرف" -> "SUPERVISOR"
+    "TECHNICIAN", "فني" -> "TECHNICIAN"
+    "ASSISTANT", "مساعد" -> "ASSISTANT"
+    else -> jobTitle.replace('_', ' ').uppercase(java.util.Locale.ROOT)
 }
 
 internal fun createEmployeeQrMatrix(code: String) =
@@ -210,7 +239,7 @@ private class EmployeeIdPrintAdapter(private val context: Context, private val e
             FileOutputStream(destination.fileDescriptor).use { document.writeTo(it) }
             callback.onWriteFinished(requestedPages.map { android.print.PageRange(it, it) }.toTypedArray())
         } catch (error: Exception) {
-            callback.onWriteFailed(error.message ?: "تعذر إنشاء بطاقات الموظفين")
+            callback.onWriteFailed(error.message ?: "UNABLE TO CREATE EMPLOYEE ID CARDS")
         } finally { document.close() }
     }
 }
@@ -231,66 +260,68 @@ private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): Stri
     return if (shortened.isEmpty()) "" else "$shortened…"
 }
 private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, height: Float, employee: EmployeeEntity) {
-    val gold = android.graphics.Color.rgb(184, 145, 61)
-    val deepGold = android.graphics.Color.rgb(135, 99, 31)
-    val black = android.graphics.Color.rgb(24, 25, 27)
-    val charcoal = android.graphics.Color.rgb(48, 48, 47)
-    val ivory = android.graphics.Color.rgb(250, 249, 246)
-    val muted = android.graphics.Color.rgb(103, 101, 96)
+    val gold = android.graphics.Color.rgb(214, 177, 92)
+    val lightGold = android.graphics.Color.rgb(241, 216, 143)
+    val deepGold = android.graphics.Color.rgb(126, 94, 36)
+    val black = android.graphics.Color.rgb(13, 14, 15)
+    val panel = android.graphics.Color.rgb(28, 29, 30)
+    val panelLight = android.graphics.Color.rgb(43, 40, 33)
+    val ivory = android.graphics.Color.rgb(245, 242, 234)
     val white = android.graphics.Color.WHITE
+    val muted = android.graphics.Color.rgb(190, 184, 168)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-    // Full artwork is 58 x 91 mm. The centered trim area is exactly 54 x 86 mm.
+    // Artwork includes bleed; all critical content stays inside the 54 x 86 mm trim.
     val trimWidth = width * EmployeeIdCardSpec.WIDTH_MM / EmployeeIdCardSpec.DESIGN_WIDTH_MM
     val trimHeight = height * EmployeeIdCardSpec.HEIGHT_MM / EmployeeIdCardSpec.DESIGN_HEIGHT_MM
     val trimLeft = (width - trimWidth) / 2f
     val trimTop = (height - trimHeight) / 2f
     val trim = RectF(trimLeft, trimTop, trimLeft + trimWidth, trimTop + trimHeight)
 
-    // Bleed background and restrained gold edge accents.
-    canvas.drawColor(white)
-    paint.color = ivory
-    canvas.drawRect(0f, 0f, width, height, paint)
-    paint.color = gold
-    canvas.drawRect(0f, 0f, width, height * 0.018f, paint)
-    canvas.drawRect(0f, height * 0.982f, width, height, paint)
-
-    // Card face.
-    paint.color = ivory
-    canvas.drawRoundRect(trim, 3.5f, 3.5f, paint)
+    canvas.drawColor(ivory)
+    // Dark premium face with a restrained metallic-gold frame.
+    paint.color = black
+    canvas.drawRoundRect(trim, 4f, 4f, paint)
     paint.color = gold
     paint.style = Paint.Style.STROKE
-    paint.strokeWidth = 0.8f
+    paint.strokeWidth = 1.15f
     canvas.drawRoundRect(RectF(trim.left + 1.8f, trim.top + 1.8f, trim.right - 1.8f, trim.bottom - 1.8f), 3f, 3f, paint)
     paint.style = Paint.Style.FILL
 
-    // Premium black header with a slim gold rule.
-    val headerBottom = trim.top + trimHeight * 0.205f
-    paint.color = black
-    canvas.drawRoundRect(RectF(trim.left, trim.top, trim.right, headerBottom + 4f), 3.5f, 3.5f, paint)
+    // Distinctive brand band and geometric accent.
+    val headerBottom = trim.top + trimHeight * 0.185f
+    paint.color = panel
+    canvas.drawRoundRect(RectF(trim.left, trim.top, trim.right, headerBottom + 4f), 4f, 4f, paint)
     canvas.drawRect(trim.left, headerBottom, trim.right, headerBottom + 4f, paint)
     paint.color = gold
-    canvas.drawRect(trim.left, headerBottom, trim.right, headerBottom + 1.5f, paint)
-
+    canvas.drawRect(trim.left, headerBottom, trim.right, headerBottom + 1.7f, paint)
+    val accent = android.graphics.Path().apply {
+        moveTo(trim.right - trimWidth * 0.23f, trim.top)
+        lineTo(trim.right, trim.top)
+        lineTo(trim.right, trim.top + trimHeight * 0.15f)
+        close()
+    }
+    paint.color = android.graphics.Color.rgb(65, 52, 28)
+    canvas.drawPath(accent, paint)
+    paint.color = lightGold
     paint.textAlign = Paint.Align.CENTER
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    paint.color = gold
-    paint.textSize = trimWidth * 0.072f
-    canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, width / 2f, trim.top + trimHeight * 0.095f, paint)
+    paint.textSize = trimWidth * 0.073f
+    canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, trim.centerX(), trim.top + trimHeight * 0.082f, paint)
     paint.color = white
-    paint.textSize = trimWidth * 0.031f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText("EMPLOYEE IDENTIFICATION", width / 2f, trim.top + trimHeight * 0.145f, paint)
+    paint.textSize = trimWidth * 0.029f
+    canvas.drawText("EMPLOYEE IDENTITY", trim.centerX(), trim.top + trimHeight * 0.135f, paint)
 
-    // Portrait frame and optional photo.
-    val photoSize = trimWidth * 0.36f
-    val photoLeft = (width - photoSize) / 2f
-    val photoTop = trim.top + trimHeight * 0.245f
+    // Employee portrait with a clean gold frame.
+    val photoSize = trimWidth * 0.315f
+    val photoLeft = trim.centerX() - photoSize / 2f
+    val photoTop = trim.top + trimHeight * 0.215f
     val photoRect = RectF(photoLeft, photoTop, photoLeft + photoSize, photoTop + photoSize)
     paint.color = gold
-    canvas.drawRoundRect(RectF(photoRect.left - 2f, photoRect.top - 2f, photoRect.right + 2f, photoRect.bottom + 2f), 5f, 5f, paint)
-    paint.color = android.graphics.Color.rgb(232, 229, 221)
-    canvas.drawRoundRect(photoRect, 4f, 4f, paint)
+    canvas.drawRoundRect(RectF(photoRect.left - 2f, photoRect.top - 2f, photoRect.right + 2f, photoRect.bottom + 2f), 4f, 4f, paint)
+    paint.color = ivory
+    canvas.drawRoundRect(photoRect, 3f, 3f, paint)
 
     val photo = employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uri ->
         runCatching { decodeSampledBitmap(context, Uri.parse(uri), 640, 640) }.getOrNull()
@@ -300,73 +331,78 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     if (photo != null) {
         canvas.save()
         val path = android.graphics.Path().apply {
-            addRoundRect(photoRect, 4f, 4f, android.graphics.Path.Direction.CW)
+            addRoundRect(photoRect, 3f, 3f, android.graphics.Path.Direction.CW)
         }
         canvas.clipPath(path)
         canvas.drawBitmap(photo, null, photoRect, paint)
         canvas.restore()
-        photo.recycle()
+        if (!photo.isRecycled) photo.recycle()
     } else {
-        paint.color = charcoal
-        paint.textSize = trimWidth * 0.036f
-        paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        canvas.drawText("GOLDEN SHINE", width / 2f, photoTop + photoSize * 0.54f, paint)
-        paint.color = muted
-        paint.textSize = trimWidth * 0.025f
-        canvas.drawText("EMPLOYEE PHOTO", width / 2f, photoTop + photoSize * 0.64f, paint)
+        paint.color = panel
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = trimWidth * 0.035f
+        canvas.drawText("GOLDEN SHINE", trim.centerX(), photoTop + photoSize * 0.54f, paint)
     }
 
-    val nameY = photoRect.bottom + trimHeight * 0.062f
-    paint.color = black
-    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    paint.textSize = trimWidth * 0.059f
-    canvas.drawText(ellipsizeCentered(employee.fullName, paint, trimWidth - 13f), width / 2f, nameY, paint)
-
-    val job = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
-    paint.color = deepGold
-    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    paint.textSize = trimWidth * 0.043f
-    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 13f), width / 2f, nameY + trimHeight * 0.052f, paint)
-
-    // Gold pill for the employee code.
-    val codeY = nameY + trimHeight * 0.112f
-    val codePill = RectF(trim.left + trimWidth * 0.13f, codeY - trimHeight * 0.034f, trim.right - trimWidth * 0.13f, codeY + trimHeight * 0.018f)
-    paint.color = android.graphics.Color.rgb(239, 232, 215)
-    canvas.drawRoundRect(codePill, 5f, 5f, paint)
-    paint.color = black
-    paint.textSize = trimWidth * 0.037f
-    paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("ID  ${ellipsizeCentered(employee.code, paint, codePill.width() - 10f)}", width / 2f, codeY, paint)
-
-    // QR code kept crisp and surrounded by a quiet zone for reliable scanning.
-    val qrTop = trim.top + trimHeight * 0.700f
-    val qrSize = trimWidth * 0.280f
-    val qrRect = RectF(width / 2f - qrSize / 2f, qrTop, width / 2f + qrSize / 2f, qrTop + qrSize)
+    // Name and role are deliberately given separate visual hierarchy.
+    val nameY = photoRect.bottom + trimHeight * 0.060f
+    paint.textAlign = Paint.Align.CENTER
     paint.color = white
-    canvas.drawRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), paint)
+    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    paint.textSize = trimWidth * 0.057f
+    canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
+
+    val job = employeeJobTitleEnglish(employee.jobTitle)
+    paint.color = lightGold
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    paint.textSize = trimWidth * 0.040f
+    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 12f), trim.centerX(), nameY + trimHeight * 0.050f, paint)
+
+    // Employee number panel.
+    val codeY = nameY + trimHeight * 0.112f
+    val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.033f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.018f)
+    paint.color = panelLight
+    canvas.drawRoundRect(codePill, 4f, 4f, paint)
+    paint.color = gold
+    canvas.drawRoundRect(RectF(codePill.left, codePill.top, codePill.left + 2.2f, codePill.bottom), 2f, 2f, paint)
+    paint.color = muted
+    paint.textSize = trimWidth * 0.026f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.004f, paint)
+    paint.color = white
+    paint.textSize = trimWidth * 0.038f
+    paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.030f, paint)
+
+    // QR is isolated in a white quiet zone for reliable scanning.
+    val qrSize = trimWidth * 0.18f
+    val qrTop = trim.top + trimHeight * 0.73f
+    val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
+    paint.color = white
+    canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
     createEmployeeQr(employee.code)?.let { qr ->
         canvas.drawBitmap(qr, null, qrRect, paint)
         qr.recycle()
     }
-
     paint.color = muted
-    paint.textSize = trimWidth * 0.028f
-    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText("SCAN TO VERIFY ID", width / 2f, qrRect.bottom + trimHeight * 0.032f, paint)
+    paint.textSize = trimWidth * 0.025f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.023f, paint)
 
-    // Fine gold divider and discreet footer.
-    val dividerY = trim.bottom - trimHeight * 0.075f
+    // Brand footer and subtle side rail.
     paint.color = gold
-    canvas.drawRect(trim.left + trimWidth * 0.17f, dividerY, trim.right - trimWidth * 0.17f, dividerY + 0.65f, paint)
-    paint.color = deepGold
-    paint.textSize = trimWidth * 0.031f
+    canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f + 0.7f, paint)
+    paint.color = lightGold
+    paint.textSize = trimWidth * 0.027f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", width / 2f, trim.bottom - trimHeight * 0.035f, paint)
+    canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.019f, paint)
+    paint.color = gold
+    canvas.drawRect(trim.left, trim.top + trimHeight * 0.21f, trim.left + 1.2f, trim.bottom - trimHeight * 0.08f, paint)
 
-    // Subtle trim guide remains outside the finished card after cutting.
-    paint.color = android.graphics.Color.rgb(195, 190, 178)
+    // Trim guide is only a fine print guide at the finished edge.
+    paint.color = android.graphics.Color.rgb(150, 145, 132)
     paint.style = Paint.Style.STROKE
-    paint.strokeWidth = 0.35f
+    paint.strokeWidth = 0.25f
     canvas.drawRect(trim, paint)
     paint.style = Paint.Style.FILL
 }

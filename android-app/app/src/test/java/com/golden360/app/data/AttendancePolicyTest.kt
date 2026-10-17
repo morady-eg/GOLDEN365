@@ -92,6 +92,81 @@ class AttendancePolicyTest {
         assertEquals(2, AttendancePolicy.absentDaysForMonth(month, offDays, absences))
     }
 
+    @Test fun datesBeforeHireAreNotWorkdaysAndDoNotCountAsAbsence() {
+        val hireDate = LocalDate.parse("2026-10-15")
+        val beforeHire = LocalDate.parse("2026-10-10")
+        val month = YearMonth.of(2026, 10)
+        assertEquals(
+            AttendanceDayStatus.NOT_YET_HIRED,
+            AttendancePolicy.status(beforeHire, emptySet(), emptySet(), LocalDate.parse("2026-10-20"), LocalTime.NOON, "08:00", hireDate)
+        )
+        assertEquals(
+            1,
+            AttendancePolicy.absentDaysForMonth(
+                month,
+                emptySet(),
+                setOf(beforeHire, LocalDate.parse("2026-10-16")),
+                hireDate
+            )
+        )
+    }
+
+    @Test fun suspendedDaysAreNotAttendanceAndDoNotCountAsAbsence() {
+        val start = LocalDate.parse("2026-10-15")
+        val resume = LocalDate.parse("2026-10-18")
+        val history = AttendancePolicy.endSuspension(
+            AttendancePolicy.startSuspension("", start),
+            resume
+        )
+        assertTrue(AttendancePolicy.isSuspendedOn(LocalDate.parse("2026-10-16"), history))
+        assertFalse(AttendancePolicy.isSuspendedOn(resume, history))
+        assertEquals(
+            AttendanceDayStatus.TEMPORARILY_SUSPENDED,
+            AttendancePolicy.status(LocalDate.parse("2026-10-16"), emptySet(), emptySet(),
+                LocalDate.parse("2026-10-20"), LocalTime.NOON, "08:00", null, "ACTIVE", resume, history)
+        )
+        assertEquals(
+            1,
+            AttendancePolicy.absentDaysForMonth(
+                YearMonth.of(2026, 10), emptySet(),
+                setOf(LocalDate.parse("2026-10-16"), LocalDate.parse("2026-10-19")),
+                null, "ACTIVE", resume, history
+            )
+        )
+    }
+
+    @Test fun terminationStopsAttendanceFromEffectiveDateButKeepsEarlierDays() {
+        val endDate = LocalDate.parse("2026-10-18")
+        assertEquals(
+            AttendanceDayStatus.AUTOMATIC_PRESENT,
+            AttendancePolicy.status(LocalDate.parse("2026-10-17"), emptySet(), emptySet(),
+                endDate, LocalTime.NOON, "08:00", null, "TERMINATED", endDate, "")
+        )
+        assertEquals(
+            AttendanceDayStatus.EMPLOYMENT_ENDED,
+            AttendancePolicy.status(endDate, emptySet(), emptySet(),
+                endDate, LocalTime.NOON, "08:00", null, "TERMINATED", endDate, "")
+        )
+        assertEquals(
+            1,
+            AttendancePolicy.absentDaysForMonth(
+                YearMonth.of(2026, 10), emptySet(),
+                setOf(LocalDate.parse("2026-10-17"), endDate),
+                null, "TERMINATED", endDate, ""
+            )
+        )
+    }
+
+    @Test fun multipleSuspensionPeriodsRemainAvailableAfterResume() {
+        var history = AttendancePolicy.startSuspension("", LocalDate.parse("2026-10-10"))
+        history = AttendancePolicy.endSuspension(history, LocalDate.parse("2026-10-12"))
+        history = AttendancePolicy.startSuspension(history, LocalDate.parse("2026-10-20"))
+        history = AttendancePolicy.endSuspension(history, LocalDate.parse("2026-10-22"))
+        assertTrue(AttendancePolicy.isSuspendedOn(LocalDate.parse("2026-10-11"), history))
+        assertFalse(AttendancePolicy.isSuspendedOn(LocalDate.parse("2026-10-15"), history))
+        assertTrue(AttendancePolicy.isSuspendedOn(LocalDate.parse("2026-10-21"), history))
+    }
+
     @Test fun rejectsInvalidShiftStartTime() {
         assertTrue(AttendancePolicy.isValidShiftStartTime("08:30"))
         assertFalse(AttendancePolicy.isValidShiftStartTime("25:30"))

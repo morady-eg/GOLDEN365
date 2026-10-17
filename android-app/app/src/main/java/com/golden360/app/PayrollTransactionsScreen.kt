@@ -117,12 +117,16 @@ internal fun PayrollTransactionsScreen(
                 val attendance = dao.getAttendance(employeeId, month)
                 val datedAbsences = dao.getDailyAbsences(employeeId, month)
                 val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(selectedEmployee?.weeklyOffDays.orEmpty())
-                val effectiveDatedAbsences = datedAbsences.count { row ->
-                    val date = java.time.LocalDate.parse(row.dateKey)
-                    !AttendancePolicy.isWeeklyOff(date, weeklyOffDays)
-                }
-                val legacyAbsences = attendance?.legacyAbsentDays ?: 0
-                val effectiveAbsentDays = legacyAbsences + effectiveDatedAbsences
+                val effectiveAbsentDays = AttendancePolicy.effectiveAbsentDaysForMonth(
+                    month = java.time.YearMonth.parse(month),
+                    weeklyOffDays = weeklyOffDays,
+                    absentDates = datedAbsences.map { java.time.LocalDate.parse(it.dateKey) }.toSet(),
+                    legacyAbsentDays = attendance?.legacyAbsentDays ?: 0,
+                    hireDate = selectedEmployee?.hireDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                    workStatus = selectedEmployee?.workStatus ?: "ACTIVE",
+                    statusEffectiveDate = selectedEmployee?.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                    suspensionPeriods = selectedEmployee?.suspensionPeriods.orEmpty()
+                )
                 val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
                 val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
                 transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = effectiveAbsentDays.toString(); approvedSnapshot = savedSnapshot; auditEvents = loadedAuditEvents

@@ -839,6 +839,8 @@ private fun EmployeeFormScreen(
     var idBack by remember(employee?.id) { mutableStateOf(employee?.nationalIdBackUri) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var saving by remember { mutableStateOf(false) }
+    var pendingWorkAction by remember(employee?.id) { mutableStateOf<String?>(null) }
+    var changingWorkStatus by remember(employee?.id) { mutableStateOf(false) }
 
     fun persistUri(uri: Uri?): String? {
         if (uri == null) return null
@@ -852,6 +854,47 @@ private fun EmployeeFormScreen(
     val frontPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { idFront = persistUri(it) ?: idFront }
     val backPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { idBack = persistUri(it) ?: idBack }
 
+    if (pendingWorkAction != null && employee != null) {
+        val action = pendingWorkAction
+        val prompt = when (action) {
+            "SUSPEND" -> "سيتم إيقاف احتساب الحضور من اليوم وحتى استئناف العمل. هل تريد المتابعة؟"
+            "RESUME" -> "سيبدأ احتساب الحضور من اليوم، مع الاحتفاظ بفترة الإيقاف السابقة. هل تريد الاستئناف؟"
+            else -> "سيتم إنهاء عمل الموظف اعتبارًا من اليوم وإيقاف احتساب الحضور بعد هذا التاريخ. لا يمكن التراجع عن الإنهاء من هذا الزر."
+        }
+        AlertDialog(
+            onDismissRequest = { if (!changingWorkStatus) pendingWorkAction = null },
+            title = { Text(when (action) { "SUSPEND" -> "إيقاف مؤقت عن العمل"; "RESUME" -> "استئناف العمل"; else -> "إنهاء عمل الموظف" }) },
+            text = { Text(prompt) },
+            confirmButton = {
+                TextButton(enabled = !changingWorkStatus, onClick = {
+                    val selectedAction = action
+                    changingWorkStatus = true
+                    scope.launch {
+                        runCatching {
+                            when (selectedAction) {
+                                "SUSPEND" -> dao.suspendEmployee(employee.id)
+                                "RESUME" -> dao.resumeEmployee(employee.id)
+                                else -> dao.terminateEmployee(employee.id)
+                            }
+                        }.onSuccess {
+                            pendingWorkAction = null
+                            onSaved(when (selectedAction) {
+                                "SUSPEND" -> "تم إيقاف الموظف مؤقتًا؛ لن يُحتسب حضوره خلال فترة الإيقاف"
+                                "RESUME" -> "تم استئناف العمل واحتساب الحضور من اليوم"
+                                else -> "تم إنهاء عمل الموظف وإيقاف احتساب الحضور من اليوم"
+                            })
+                        }.onFailure {
+                            snackbar.showSnackbar("تعذر تغيير حالة العمل: " + (it.message ?: "خطأ غير معروف"))
+                            pendingWorkAction = null
+                        }
+                        changingWorkStatus = false
+                    }
+                }) { Text(if (changingWorkStatus) "جارٍ التنفيذ…" else "تأكيد") }
+            },
+            dismissButton = { TextButton(enabled = !changingWorkStatus, onClick = { pendingWorkAction = null }) { Text("إلغاء") } },
+            containerColor = Panel, titleContentColor = SoftGold, textContentColor = Color.White
+        )
+    }
     Scaffold(
         modifier = modifier,
         containerColor = Black,
@@ -870,6 +913,34 @@ private fun EmployeeFormScreen(
                         }
             }
             HorizontalDivider(color = Color(0xFF4A3D24))
+            if (employee != null) {
+                val statusText = when (employee.workStatus) {
+                    "TERMINATED" -> "منتهي العمل منذ " + (employee.statusEffectiveDate ?: "تاريخ غير محدد")
+                    "SUSPENDED" -> "موقوف مؤقتًا منذ " + (employee.statusEffectiveDate ?: "تاريخ غير محدد")
+                    else -> "على رأس العمل"
+                }
+                Surface(
+                    color = Panel, shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, when (employee.workStatus) { "TERMINATED" -> Color(0xFF9A4A42); "SUSPENDED" -> Gold; else -> Color(0xFF4A673F) })
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("حالة العمل: " + statusText, color = Color.White, fontWeight = FontWeight.Bold)
+                        if (employee.workStatus != "TERMINATED") {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (employee.workStatus == "SUSPENDED") {
+                                    Button(onClick = { pendingWorkAction = "RESUME" }, enabled = !saving && !changingWorkStatus, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)) { Text("استئناف العمل") }
+                                } else {
+                                    OutlinedButton(onClick = { pendingWorkAction = "SUSPEND" }, enabled = !saving && !changingWorkStatus, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftGold)) { Text("إيقاف مؤقت") }
+                                }
+                                Button(onClick = { pendingWorkAction = "TERMINATE" }, enabled = !saving && !changingWorkStatus, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9A4A42), contentColor = Color.White)) { Text("إنهاء العمل") }
+                            }
+                            Text("تُحفظ فترات الإيقاف السابقة، ولا تُحسب كأيام حضور أو غياب.", color = Muted, fontSize = 12.sp)
+                        } else {
+                            Text("تم إيقاف احتساب الحضور بعد تاريخ إنهاء العمل. السجلات والرواتب السابقة محفوظة.", color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
             SectionTitle("البيانات الأساسية")
             GoldenField("اسم الموظف *", name, { name = it; errors = errors - "fullName" }, errors["fullName"], "الاسم بالكامل")
             GoldenField("رقم هاتف واتساب", phone, { phone = it; errors = errors - "phone" }, errors["phone"], "مثال: 2010XXXXXXXX", KeyboardType.Phone)

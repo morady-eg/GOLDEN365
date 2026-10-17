@@ -41,6 +41,14 @@ class EmployeeIdCardTest {
     }
     
     @Test
+    fun employeeIdTextIsEnglishAndUppercase() {
+        assertEquals("ADMINISTRATOR", employeeJobTitleEnglish("ADMIN"))
+        assertEquals("ADMINISTRATOR", employeeJobTitleEnglish("إداري"))
+        assertEquals("TECHNICIAN", employeeJobTitleEnglish("technician"))
+        assertEquals("SHIFT MANAGER", employeeJobTitleEnglish("shift_manager"))
+    }
+
+    @Test
     fun allPagesRangeDoesNotExpandAnUnboundedRange() {
         assertEquals(listOf(0, 1, 2), employeeIdRequestedPageIndices(3, listOf(0..Int.MAX_VALUE)))
         assertEquals(listOf(1), employeeIdRequestedPageIndices(3, listOf(1..1)))

@@ -41,6 +41,20 @@ class BackupCryptoTest {
     }
 
     @Test
+    fun backupSizeValidationRejectsDatabasesThatRestoreWouldRefuse() {
+        BackupManager.validateBackupSizes(100L * 1024 * 1024, 1024L)
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupManager.validateBackupSizes(100L * 1024 * 1024 + 1, 1024L)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupManager.validateBackupSizes(1024L, 1024L, 200L * 1024 * 1024 + 1)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupManager.validateBackupSizes(1024L, 1024L, 100L, 200L * 1024 * 1024 + 1)
+        }
+    }
+
+    @Test
     fun shortPasswordIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             BackupCrypto.encrypt(byteArrayOf(1), "short".toCharArray())

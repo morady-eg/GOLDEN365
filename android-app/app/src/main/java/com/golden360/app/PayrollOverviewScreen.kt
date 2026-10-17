@@ -81,9 +81,16 @@ internal fun PayrollOverviewScreen(
                     val attendance = dao.getAttendance(employee.id, key)
                     val absences = dao.getDailyAbsences(employee.id, key)
                     val offDays = AttendancePolicy.parseWeeklyOffDays(employee.weeklyOffDays)
-                    val absentDays = (attendance?.legacyAbsentDays ?: 0) + absences.count { row ->
-                        !AttendancePolicy.isWeeklyOff(java.time.LocalDate.parse(row.dateKey), offDays)
-                    }
+                    val absentDays = AttendancePolicy.effectiveAbsentDaysForMonth(
+                        month = month,
+                        weeklyOffDays = offDays,
+                        absentDates = absences.map { java.time.LocalDate.parse(it.dateKey) }.toSet(),
+                        legacyAbsentDays = attendance?.legacyAbsentDays ?: 0,
+                        hireDate = employee.hireDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                        workStatus = employee.workStatus,
+                        statusEffectiveDate = employee.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                        suspensionPeriods = employee.suspensionPeriods
+                    )
                     val amounts = TransactionType.entries.associateWith { type ->
                         dao.sumForEmployeeMonth(employee.id, key, type.name)
                     }

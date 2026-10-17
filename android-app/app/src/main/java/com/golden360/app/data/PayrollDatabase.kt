@@ -150,11 +150,23 @@ interface PayrollTransactionDao {
         dateKey: String,
         monthKey: String,
         weeklyOffDaysCsv: String,
-        absent: Boolean
+        absent: Boolean,
+        hireDate: String? = null,
+        workStatus: String = "ACTIVE",
+        statusEffectiveDate: String? = null,
+        suspensionPeriods: String = ""
     ) {
         require(employeeId > 0) { "يجب اختيار موظف صحيح" }
         val date = java.time.LocalDate.parse(dateKey)
         require(java.time.YearMonth.from(date).toString() == monthKey) { "تاريخ الغياب يجب أن يطابق الشهر المحدد" }
+        val parsedHireDate = hireDate?.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) }
+        require(!absent || parsedHireDate == null || !date.isBefore(parsedHireDate)) {
+            "لا يمكن تسجيل غياب قبل تاريخ تعيين الموظف"
+        }
+        val parsedStatusDate = statusEffectiveDate?.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) }
+        require(!absent || !AttendancePolicy.isEmployeeInactiveOn(date, workStatus, parsedStatusDate, suspensionPeriods)) {
+            "لا يمكن تسجيل غياب خلال فترة الإيقاف أو بعد إنهاء العمل"
+        }
         require(!absent || !AttendancePolicy.isWeeklyOff(date, AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv))) {
             "الإجازة الأسبوعية مدفوعة الأجر ولا تسجل غيابًا"
         }
@@ -170,7 +182,10 @@ interface PayrollTransactionDao {
         val legacyDays = previousMonthlyAttendance?.legacyAbsentDays ?: 0
         val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv)
         val effectiveDatedAbsences = allAbsences.count { row ->
-            !AttendancePolicy.isWeeklyOff(java.time.LocalDate.parse(row.dateKey), weeklyOffDays)
+            val absenceDate = java.time.LocalDate.parse(row.dateKey)
+            (parsedHireDate == null || !absenceDate.isBefore(parsedHireDate)) &&
+                !AttendancePolicy.isEmployeeInactiveOn(absenceDate, workStatus, parsedStatusDate, suspensionPeriods) &&
+                !AttendancePolicy.isWeeklyOff(absenceDate, weeklyOffDays)
         }
         require(legacyDays + effectiveDatedAbsences <= 30) {
             "إجمالي أيام الغياب لا يمكن أن يتجاوز 30 يومًا في سياسة المرتب الحالية"
