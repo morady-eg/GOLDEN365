@@ -636,7 +636,7 @@ private fun EmployeeFormScreen(
             HorizontalDivider(color = Color(0xFF4A3D24))
             SectionTitle("البيانات الأساسية")
             GoldenField("اسم الموظف *", name, { name = it; errors = errors - "fullName" }, errors["fullName"], "الاسم بالكامل")
-            GoldenField("رقم هاتف واتساب", phone, { phone = it }, null, "مثال: 2010XXXXXXXX", KeyboardType.Phone)
+            GoldenField("رقم هاتف واتساب", phone, { phone = it; errors = errors - "phone" }, errors["phone"], "مثال: 2010XXXXXXXX", KeyboardType.Phone)
             OutlinedFieldBlock("كود الموظف", employee?.code ?: "يُنشأ تلقائيًا عند الحفظ")
             ExposedDropdownMenuBox(expanded = jobExpanded, onExpandedChange = { jobExpanded = !jobExpanded }) {
                 OutlinedTextField(
@@ -652,7 +652,7 @@ private fun EmployeeFormScreen(
                     }
                 }
             }
-            GoldenField("تاريخ التعيين", hireDate, { hireDate = it }, null, "YYYY-MM-DD (اختياري)")
+            GoldenField("تاريخ التعيين", hireDate, { hireDate = it; errors = errors - "hireDate" }, errors["hireDate"], "YYYY-MM-DD (اختياري)")
             SectionTitle("بيانات إضافية — اختيارية")
             GoldenField("الرقم القومي", nationalId, { nationalId = it; errors = errors - "nationalId" }, errors["nationalId"], "14 رقمًا", KeyboardType.Number)
             GoldenField("العنوان", address, { address = it }, null, "عنوان الموظف")
