@@ -151,7 +151,7 @@ internal fun AttendanceScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("غياب مسجل بالتاريخ", color = Muted, fontSize = 11.sp)
-                            Text(absentDates.count { !AttendancePolicy.isWeeklyOff(it, weeklyOffDays) }.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(AttendancePolicy.absentDaysForMonth(month, weeklyOffDays, absentDates, selectedEmployee?.hireDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ).toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
                         if (legacyAbsentDays > 0) {
                             Column(horizontalAlignment = Alignment.End) {
@@ -176,12 +176,14 @@ internal fun AttendanceScreen(
                     contentPadding = PaddingValues(bottom = 12.dp)
                 ) {
                     items(monthDates, key = { it.toString() }) { date ->
-                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, clockNow.toLocalTime(), selectedEmployee?.shiftStartTime ?: "08:00")
+                        val hireDate = selectedEmployee?.hireDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, clockNow.toLocalTime(), selectedEmployee?.shiftStartTime ?: "08:00", hireDate)
                         val statusLabel = when (status) {
                             AttendanceDayStatus.PAID_WEEKLY_OFF -> "إجازة أسبوعية مدفوعة"
                             AttendanceDayStatus.MANUALLY_ABSENT -> "غياب مسجل — يُخصم حسب سياسة المرتب"
                             AttendanceDayStatus.AUTOMATIC_PRESENT -> "حاضر تلقائيًا"
                             AttendanceDayStatus.SCHEDULED -> "يوم عمل مجدول"
+                            AttendanceDayStatus.NOT_YET_HIRED -> "قبل تاريخ التعيين"
                         }
                         Surface(
                             color = Panel, shape = RoundedCornerShape(12.dp),
@@ -204,7 +206,8 @@ internal fun AttendanceScreen(
                                         else -> Muted
                                     }, fontSize = 11.sp)
                                 }
-                                if ((status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) &&
+                                if (status != AttendanceDayStatus.NOT_YET_HIRED &&
+                                    (status != AttendanceDayStatus.PAID_WEEKLY_OFF || date in absentDates) &&
                                     !date.isAfter(today) &&
                                     (date in absentDates || status != AttendanceDayStatus.SCHEDULED)) {
                                     TextButton(
@@ -214,7 +217,7 @@ internal fun AttendanceScreen(
                                             val markAbsent = date !in absentDates
                                             scope.launch {
                                                 runCatching {
-                                                    dao.setDailyAbsence(employee.id, date.toString(), month.toString(), employee.weeklyOffDays, markAbsent)
+                                                    dao.setDailyAbsence(employee.id, date.toString(), month.toString(), employee.weeklyOffDays, markAbsent, employee.hireDate)
                                                     val rows = dao.getDailyAbsences(employee.id, month.toString())
                                                     val monthly = dao.getAttendance(employee.id, month.toString())
                                                     absentDates = rows.map { LocalDate.parse(it.dateKey) }.toSet()
