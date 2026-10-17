@@ -2,6 +2,7 @@ package com.golden360.app.data
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 
 enum class AttendanceDayStatus {
@@ -35,11 +36,15 @@ object AttendancePolicy {
         date: LocalDate,
         weeklyOffDays: Set<DayOfWeek>,
         absentDates: Set<LocalDate>,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        currentTime: LocalTime = LocalTime.now(),
+        shiftStartTime: String = "08:00"
     ): AttendanceDayStatus = when {
         isWeeklyOff(date, weeklyOffDays) -> AttendanceDayStatus.PAID_WEEKLY_OFF
         date in absentDates -> AttendanceDayStatus.MANUALLY_ABSENT
         date.isAfter(today) -> AttendanceDayStatus.SCHEDULED
+        date == today && isValidShiftStartTime(shiftStartTime) && currentTime.isBefore(LocalTime.parse(shiftStartTime)) ->
+            AttendanceDayStatus.SCHEDULED
         else -> AttendanceDayStatus.AUTOMATIC_PRESENT
     }
 
