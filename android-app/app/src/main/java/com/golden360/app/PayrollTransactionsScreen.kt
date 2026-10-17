@@ -122,7 +122,10 @@ internal fun PayrollTransactionsScreen(
                     weeklyOffDays = weeklyOffDays,
                     absentDates = datedAbsences.map { java.time.LocalDate.parse(it.dateKey) }.toSet(),
                     legacyAbsentDays = attendance?.legacyAbsentDays ?: 0,
-                    hireDate = selectedEmployee?.hireDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                    hireDate = selectedEmployee?.hireDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                    workStatus = selectedEmployee?.workStatus ?: "ACTIVE",
+                    statusEffectiveDate = selectedEmployee?.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                    suspensionPeriods = selectedEmployee?.suspensionPeriods.orEmpty()
                 )
                 val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
                 val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
