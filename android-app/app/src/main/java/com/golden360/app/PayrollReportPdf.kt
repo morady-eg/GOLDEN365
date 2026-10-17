@@ -66,8 +66,8 @@ internal object PayrollReportPdf {
             drawRtl(canvas, "بيانات الموظف", right - 14f, infoTop + 24f, 180f, paint(gold, 11f, true))
             drawRtl(canvas, "اسم الموظف", right - 14f, infoTop + 47f, 175f, small)
             drawRtl(canvas, snapshot.employeeName, right - 14f, infoTop + 65f, 290f, bold)
-            drawRtl(canvas, "كود الموظف: ${snapshot.employeeCode}", margin + 14f, infoTop + 47f, 170f, small)
-            drawRtl(canvas, "المسمى الوظيفي: ${snapshot.jobTitle}", margin + 14f, infoTop + 70f, 240f, regular)
+            drawRtl(canvas, "كود الموظف: ${snapshot.employeeCode}", width / 2f - 12f, infoTop + 47f, 190f, small)
+            drawRtl(canvas, "المسمى الوظيفي: ${snapshot.jobTitle}", width / 2f - 12f, infoTop + 70f, 230f, regular)
             drawRtl(canvas, "الفترة: ${snapshot.monthKey}", right - 14f, infoTop + 83f, 190f, regular)
 
             // Earnings and deductions table
