@@ -63,7 +63,7 @@ internal object EmployeeIdCardSpec {
     const val WIDTH_MM = 54
     const val HEIGHT_MM = 86
     const val COMPANY_NAME = "GOLDEN SHINE"
-    const val QR_SIZE_PX = 360
+    const val QR_SIZE_PX = 180
 }
 
 @Composable
@@ -147,7 +147,7 @@ internal fun EmployeeIdCardScreen(
 }
 
 internal fun createEmployeeQrMatrix(code: String) =
-    QRCodeWriter().encode(code.also { require(it.isNotBlank()) }, BarcodeFormat.QR_CODE, 180, 180)
+    QRCodeWriter().encode(code.also { require(it.isNotBlank()) }, BarcodeFormat.QR_CODE, EmployeeIdCardSpec.QR_SIZE_PX, EmployeeIdCardSpec.QR_SIZE_PX)
 
 private fun createEmployeeQr(code: String): Bitmap? = runCatching {
     val matrix = createEmployeeQrMatrix(code)
