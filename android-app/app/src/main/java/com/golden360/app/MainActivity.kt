@@ -1,5 +1,6 @@
 package com.golden360.app
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -45,8 +46,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.golden360.app.data.BackupManager
 import com.golden360.app.data.EmployeeDao
 import com.golden360.app.data.EmployeeDatabase
 import com.golden360.app.data.EmployeeDraft
@@ -56,6 +59,8 @@ import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PayrollDatabase
 import com.golden360.app.data.JobTitle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal val Black = Color(0xFF101010)
 internal val Panel = Color(0xFF1B1B1B)
@@ -89,6 +94,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var showForm by remember { mutableStateOf(false) }
     var showPayroll by remember { mutableStateOf(false) }
     var showIdCard by remember { mutableStateOf(false) }
+    var showBackupScreen by remember { mutableStateOf(false) }
     var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
@@ -98,6 +104,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var searchMode by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val activityContext = LocalContext.current
 
     suspend fun refresh() {
         loading = true
@@ -122,7 +129,7 @@ private fun Golden360App(dao: EmployeeDao) {
         containerColor = Black,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            if (!showForm && !showPayroll && !showIdCard) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
                 TopAppBar(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -157,11 +164,11 @@ private fun Golden360App(dao: EmployeeDao) {
                     title = {
                         Column {
                             Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
+                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; selectedIdEmployee = null; editing = null }) {
+                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; showBackupScreen = false; selectedIdEmployee = null; editing = null }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "رجوع", tint = Gold)
                         }
                     },
@@ -170,7 +177,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         bottomBar = {
-            if (!showForm && !showPayroll && !showIdCard) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
                 NavigationBar(containerColor = Color(0xFF171717), contentColor = SoftGold, tonalElevation = 0.dp) {
                     val tabs = listOf(
                         Triple("home", "الرئيسية", Icons.Default.Home),
@@ -198,7 +205,7 @@ private fun Golden360App(dao: EmployeeDao) {
             }
         },
         floatingActionButton = {
-            if (!showForm && !showPayroll && !showIdCard && activeTab == "employees") {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && activeTab == "employees") {
                 FloatingActionButton(
                     onClick = { editing = null; showForm = true },
                     containerColor = Gold, contentColor = Black, shape = RoundedCornerShape(18.dp)
@@ -207,6 +214,11 @@ private fun Golden360App(dao: EmployeeDao) {
         }
     ) { padding ->
         when {
+            showBackupScreen -> BackupRestoreScreen(
+                modifier = Modifier.padding(padding),
+                onBack = { showBackupScreen = false },
+                onFinished = { (activityContext as? Activity)?.recreate() }
+            )
             showForm -> EmployeeFormScreen(
                 employee = editing, dao = dao, modifier = Modifier.padding(padding),
                 onSaved = { message ->
@@ -252,7 +264,8 @@ private fun Golden360App(dao: EmployeeDao) {
             )
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
-                onOpen = { openTransactions(it) }
+                onOpen = { openTransactions(it) },
+                onBackup = { showBackupScreen = true }
             )
             activeTab == "payroll" -> PayrollOverviewScreen(
                 modifier = Modifier.padding(padding),
@@ -466,7 +479,7 @@ private fun PayrollOverviewScreen(
 }
 
 @Composable
-private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golden360.app.data.TransactionType) -> Unit) {
+private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golden360.app.data.TransactionType) -> Unit, onBackup: () -> Unit) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -488,7 +501,191 @@ private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golde
         LuxuryActionCard("تسجيل وردية إضافية", "حساب المقابل حسب سعر الوردية في ملف الموظف", Icons.Default.AccessTime, Modifier.fillMaxWidth()) {
             onOpen(com.golden360.app.data.TransactionType.OVERTIME)
         }
+        SectionTitle("حماية البيانات")
+        LuxuryActionCard("النسخ الاحتياطي والاستعادة", "نسخة مشفرة لبيانات الموظفين والرواتب والحضور", Icons.Default.Save, Modifier.fillMaxWidth(), onBackup)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BackupRestoreScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onFinished: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    var password by remember { mutableStateOf("") }
+    var confirmRestore by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+
+    val createBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                val result = runCatching {
+                    val secret = password.toCharArray()
+                    try {
+                        val encrypted = withContext(Dispatchers.IO) {
+                            BackupManager.createEncryptedBackup(context, secret)
+                        }
+                        withContext(Dispatchers.IO) {
+                            val output = requireNotNull(context.contentResolver.openOutputStream(uri)) {
+                                "تعذر فتح ملف الحفظ"
+                            }
+                            output.use { it.write(encrypted) }
+                            encrypted.fill(0)
+                        }
+                    } finally {
+                        secret.fill(Char.MIN_VALUE)
+                    }
+                }
+                busy = false
+                result.onSuccess {
+                    password = ""
+                    snackbar.showSnackbar("تم إنشاء النسخة الاحتياطية المشفرة بنجاح")
+                    onFinished()
+                }.onFailure {
+                    snackbar.showSnackbar("تعذر إنشاء النسخة: ${it.message ?: "خطأ غير معروف"}")
+                }
+            }
+        }
+    }
+
+    val selectBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                val result = runCatching {
+                    val encrypted = withContext(Dispatchers.IO) {
+                        requireNotNull(context.contentResolver.openInputStream(uri)) {
+                            "تعذر قراءة ملف النسخة الاحتياطية"
+                        }.use { input ->
+                            val bytes = input.readBytes()
+                            require(bytes.size <= 200 * 1024 * 1024) { "حجم ملف النسخة أكبر من الحد المسموح" }
+                            bytes
+                        }
+                    }
+                    val secret = password.toCharArray()
+                    try {
+                        withContext(Dispatchers.IO) {
+                            BackupManager.restoreEncryptedBackup(context, encrypted, secret)
+                        }
+                    } finally {
+                        secret.fill(Char.MIN_VALUE)
+                        encrypted.fill(0)
+                    }
+                }
+                busy = false
+                result.onSuccess {
+                    password = ""
+                    confirmRestore = false
+                    snackbar.showSnackbar("تمت استعادة النسخة والتحقق من سلامة قواعد البيانات")
+                    onFinished()
+                }.onFailure {
+                    snackbar.showSnackbar("لم تتم الاستعادة: ${it.message ?: "تعذر التحقق من النسخة"}")
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = Black,
+        snackbarHost = { SnackbarHost(snackbar) }
+    ) { innerPadding ->
+        Column(
+            Modifier.fillMaxSize().padding(innerPadding).verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("النسخ الاحتياطي والاستعادة", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "أنشئ ملفًا مشفرًا يحفظ قواعد بيانات الموظفين والرواتب والحضور والحركات المالية وسجل التدقيق.",
+                color = Muted, fontSize = 13.sp
+            )
+            Surface(
+                color = Panel, shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF514020)), modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("كلمة مرور النسخة الاحتياطية", color = SoftGold, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("كلمة مرور قوية (10 أحرف على الأقل)") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = fieldColors()
+                    )
+                    Text(
+                        "احتفظ بكلمة المرور في مكان آمن. لا يمكن استعادة النسخة بدونها، ولا تُرسل إلى أي جهة.",
+                        color = Muted, fontSize = 12.sp
+                    )
+                    Button(
+                        enabled = !busy && password.length >= 10,
+                        onClick = { createBackup.launch("GOLDEN360-backup.g360") },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("إنشاء نسخة احتياطية مشفرة")
+                    }
+                }
+            }
+            Surface(
+                color = Panel, shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF6B3434)), modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("استعادة نسخة احتياطية", color = Color(0xFFFFB3A8), fontWeight = FontWeight.Bold)
+                    Text(
+                        "الاستعادة تستبدل بيانات التطبيق الحالية بالبيانات الموجودة في النسخة. أنشئ نسخة جديدة من بياناتك الحالية أولًا.",
+                        color = Muted, fontSize = 12.sp
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = confirmRestore,
+                            onCheckedChange = { confirmRestore = it },
+                            colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = Muted, checkmarkColor = Black)
+                        )
+                        Text("أفهم أن الاستعادة ستستبدل البيانات الحالية", color = Color.White, fontSize = 12.sp)
+                    }
+                    OutlinedButton(
+                        enabled = !busy && password.length >= 10 && confirmRestore,
+                        onClick = { selectBackup.launch(arrayOf("application/octet-stream", "application/*", "*/*")) },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("اختيار نسخة واستعادتها", color = SoftGold)
+                    }
+                }
+            }
+            Text(
+                "ملاحظة: صور الموظفين وصور بطاقات الهوية المرتبطة بمواقع خارجية لا تُضمَّن في هذه النسخة؛ يلزم نقلها منفصلة عند الانتقال إلى هاتف آخر.",
+                color = Muted, fontSize = 11.sp
+            )
+            if (busy) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator(color = Gold, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Text("جارٍ التحقق والمعالجة بأمان…", color = SoftGold, fontSize = 12.sp)
+                }
+            }
+            OutlinedButton(onClick = onBack, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Text("رجوع", color = SoftGold)
+            }
+        }
     }
 }
 

@@ -34,6 +34,34 @@ internal object DatabaseEncryption {
         return passphrase.toByteArray(StandardCharsets.UTF_8)
     }
 
+    /** Returns the SQLCipher passphrase for an authorized portable backup operation. */
+    @Synchronized
+    internal fun currentPassphrase(context: Context, databaseName: String): String {
+        require(databaseName == "golden360.db" || databaseName == "golden360_payroll.db") {
+            "اسم قاعدة البيانات غير مسموح"
+        }
+        return getOrCreatePassphrase(context.applicationContext, databaseName)
+    }
+
+    /** Re-wraps a restored SQLCipher passphrase with this device's Android Keystore key. */
+    @Synchronized
+    internal fun installPassphrase(context: Context, databaseName: String, passphrase: String) {
+        require(databaseName == "golden360.db" || databaseName == "golden360_payroll.db") {
+            "اسم قاعدة البيانات غير مسموح"
+        }
+        require(passphrase.isNotBlank()) { "مفتاح قاعدة البيانات فارغ" }
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateWrappingKey())
+        cipher.updateAAD(databaseName.toByteArray(StandardCharsets.UTF_8))
+        val encrypted = cipher.doFinal(passphrase.toByteArray(StandardCharsets.UTF_8))
+        val wrapped = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" +
+            Base64.encodeToString(encrypted, Base64.NO_WRAP)
+        check(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit().putString("wrapped.$databaseName", wrapped).commit()) {
+            "تعذر حفظ مفتاح قاعدة البيانات بعد الاستعادة"
+        }
+    }
+
     private fun getOrCreatePassphrase(context: Context, databaseName: String): String {
         val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         val preferenceName = "wrapped.$databaseName"
