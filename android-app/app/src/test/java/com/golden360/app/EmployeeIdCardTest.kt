@@ -13,6 +13,14 @@ class EmployeeIdCardTest {
     }
 
     @Test
+    fun printArtworkIncludesBleedAndUses300Dpi() {
+        assertEquals(58, EmployeeIdCardSpec.DESIGN_WIDTH_MM)
+        assertEquals(91, EmployeeIdCardSpec.DESIGN_HEIGHT_MM)
+        assertEquals(300, EmployeeIdCardSpec.PRINT_DPI)
+        assertEquals(512, EmployeeIdCardSpec.QR_SIZE_PX)
+    }
+
+    @Test
     fun qrCodeIsGeneratedForEmployeeCode() {
         val matrix = createEmployeeQrMatrix("G365-0042")
 
