@@ -41,10 +41,10 @@ object AttendancePolicy {
         shiftStartTime: String = "08:00"
     ): AttendanceDayStatus = when {
         isWeeklyOff(date, weeklyOffDays) -> AttendanceDayStatus.PAID_WEEKLY_OFF
-        date in absentDates -> AttendanceDayStatus.MANUALLY_ABSENT
         date.isAfter(today) -> AttendanceDayStatus.SCHEDULED
         date == today && isValidShiftStartTime(shiftStartTime) && currentTime.isBefore(LocalTime.parse(shiftStartTime)) ->
             AttendanceDayStatus.SCHEDULED
+        date in absentDates -> AttendanceDayStatus.MANUALLY_ABSENT
         else -> AttendanceDayStatus.AUTOMATIC_PRESENT
     }
 
