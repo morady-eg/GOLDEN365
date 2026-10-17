@@ -72,6 +72,7 @@ internal fun PayrollTransactionsScreen(
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
     var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val snapshot = pendingPayrollSnapshot
         if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
@@ -83,15 +84,16 @@ internal fun PayrollTransactionsScreen(
         if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
     }
     LaunchedEffect(selectedEmployee?.id, month) {
-        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; error = null
+        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = null
         val employeeId = selectedEmployee?.id
         if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
             runCatching {
                 val loadedTransactions = dao.getForEmployeeMonth(employeeId, month)
                 val loadedTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employeeId, month, type.name) }
                 val attendance = dao.getAttendance(employeeId, month)
-                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString()
-            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
+                val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
+                transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString(); approvedSnapshot = savedSnapshot
+            }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
         } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
 
@@ -182,7 +184,7 @@ internal fun PayrollTransactionsScreen(
             }
             GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
             var absentExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = absentExpanded, onExpandedChange = { absentExpanded = !absentExpanded }) {
+            ExposedDropdownMenuBox(expanded = absentExpanded, onExpandedChange = { if (approvedSnapshot == null) absentExpanded = !absentExpanded }) {
                 OutlinedTextField(
                     value = absentDays,
                     onValueChange = {},
@@ -195,7 +197,7 @@ internal fun PayrollTransactionsScreen(
                 )
                 ExposedDropdownMenu(expanded = absentExpanded, onDismissRequest = { absentExpanded = false }) {
                     (0..30).forEach { days ->
-                        DropdownMenuItem(text = { Text("$days يوم") }, onClick = {
+                        DropdownMenuItem(enabled = approvedSnapshot == null, text = { Text("$days يوم") }, onClick = {
                             absentDays = days.toString(); absentExpanded = false
                             val employeeId = selectedEmployee?.id; val monthKey = month
                             if (employeeId != null && monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) scope.launch {
@@ -334,7 +336,7 @@ internal fun PayrollTransactionsScreen(
                 ) { Text("إرسال التفاصيل عبر واتساب") }
             }
             Button(
-                enabled = !saving,
+                enabled = !saving && approvedSnapshot == null,
                 onClick = {
                     val employee = selectedEmployee
                     val monthValid = month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))
@@ -406,6 +408,7 @@ internal fun PayrollTransactionsScreen(
                 if (saving) CircularProgressIndicator(Modifier.size(20.dp), color = Black, strokeWidth = 2.dp)
                 else Text("حفظ الحركة وإنشاء رقم مرجعي", fontWeight = FontWeight.Bold)
             }
+            if (approvedSnapshot != null) Text("هذا الشهر معتمد؛ تم إيقاف تعديل الغياب والحركات لحماية نسخة كشف الراتب.", color = SoftGold, fontSize = 12.sp)
             if (payrollSummary != null && selectedEmployee != null) {
                 Surface(color = Color(0xFF302719), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, Color(0xFF6A5429))) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -436,7 +439,7 @@ internal fun PayrollTransactionsScreen(
                                             bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
                                             netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
                                         ).also { dao.insertPayrollSnapshot(it) }
-                                    }.onSuccess { snapshot -> pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
+                                    }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
                                         .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
                                 }
                             }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
