@@ -369,7 +369,7 @@ internal fun PayrollTransactionsScreen(
                                         append("*بيانات الموظف*\n")
                                         append("الاسم: ${employee.fullName}\nالكود الوظيفي: ${employee.code}\nالوظيفة: ${jobLabel}\n\n")
                                         append("*تفاصيل الوردية الإضافية*\n")
-                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}")
+                                        append("مكان الوردية: ${overtimePlace.trim()}\nتاريخ الوردية: ${overtimeDate.trim()}\nموعد الوردية: ${overtimeTime.trim()}\nعدد الورديات: ${count}\nالقيمة الإجمالية: ${formatMoney(enteredAmount)} ج.م\nشهر المرتب: ${month}")
                                         if (note.isNotBlank()) append("\nملاحظات: ${note.trim()}")
                                         append("\n\nالرقم المرجعي: ${reference}\n\n*GOLDEN SHINE MARBLE*\nGOLDEN 360")
                                     }
