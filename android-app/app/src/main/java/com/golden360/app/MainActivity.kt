@@ -104,6 +104,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var searchMode by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val activityContext = LocalContext.current
 
     suspend fun refresh() {
         loading = true
@@ -216,7 +217,7 @@ private fun Golden360App(dao: EmployeeDao) {
             showBackupScreen -> BackupRestoreScreen(
                 modifier = Modifier.padding(padding),
                 onBack = { showBackupScreen = false },
-                onFinished = { (LocalContext.current as? Activity)?.recreate() }
+                onFinished = { (activityContext as? Activity)?.recreate() }
             )
             showForm -> EmployeeFormScreen(
                 employee = editing, dao = dao, modifier = Modifier.padding(padding),
