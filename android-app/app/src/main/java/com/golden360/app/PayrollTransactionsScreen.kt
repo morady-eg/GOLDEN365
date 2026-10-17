@@ -38,6 +38,7 @@ import com.golden360.app.data.PayrollTransactionDao
 import com.golden360.app.data.PayrollTransactionEntity
 import com.golden360.app.data.MonthlyAttendanceEntity
 import com.golden360.app.data.PayrollSnapshotEntity
+import com.golden360.app.data.PayrollAuditEventEntity
 import com.golden360.app.data.TransactionType
 import com.golden360.app.data.EmployeeValidator
 import com.golden360.app.data.PhoneNumberFormatter
@@ -79,6 +80,7 @@ internal fun PayrollTransactionsScreen(
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
     var pendingPayrollSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
     var approvedSnapshot by remember { mutableStateOf<PayrollSnapshotEntity?>(null) }
+    var auditEvents by remember { mutableStateOf<List<PayrollAuditEventEntity>>(emptyList()) }
     val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val snapshot = pendingPayrollSnapshot
         if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
@@ -99,8 +101,11 @@ internal fun PayrollTransactionsScreen(
                 val loadedTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employeeId, month, type.name) }
                 val attendance = dao.getAttendance(employeeId, month)
                 val savedSnapshot = dao.getPayrollSnapshot(employeeId, month)
+                val loadedAuditEvents = dao.getAuditEvents(employeeId, month)
                 transactions = loadedTransactions; monthlyTotals = loadedTotals; absentDays = (attendance?.absentDays ?: 0).toString(); approvedSnapshot = savedSnapshot
+; auditEvents = loadedAuditEvents
             }.onFailure { transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = "تعذر تحميل بيانات الشهر. حاول تحديث الشاشة." }
+            auditEvents = emptyList()
         } else if (employeeId != null) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
     }
 
@@ -214,6 +219,7 @@ internal fun PayrollTransactionsScreen(
                             val employeeId = selectedEmployee?.id; val monthKey = month
                             if (employeeId != null && monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) scope.launch {
                                 runCatching { dao.saveAttendance(MonthlyAttendanceEntity(employeeId, monthKey, days)) }
+                                    .onSuccess { auditEvents = dao.getAuditEvents(employeeId, monthKey) }
                                     .onFailure { error = "تعذر حفظ أيام الغياب: ${it.message ?: "خطأ غير معروف"}" }
                             }
                         })
@@ -411,6 +417,7 @@ internal fun PayrollTransactionsScreen(
                                 overtimeTime = ""
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
                                 monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
+                                 auditEvents = dao.getAuditEvents(employee.id, month)
                             }.onFailure { error = "تعذر حفظ الحركة: ${it.message ?: "خطأ غير معروف"}" }
                             saving = false
                         }
@@ -492,6 +499,24 @@ internal fun PayrollTransactionsScreen(
     }
 }
 
+            Text("سجل التدقيق المالي", color = SoftGold, fontWeight = FontWeight.Bold)
+            if (auditEvents.isEmpty()) {
+                Text("لا توجد أحداث تدقيق لهذا الشهر حتى الآن.", color = Muted, fontSize = 12.sp)
+            } else {
+                auditEvents.take(20).forEach { event ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        val actionLabel = when (event.action) {
+                            "TRANSACTION_CREATED" -> "تسجيل حركة مالية"
+                            "ABSENCE_UPDATED" -> "تعديل أيام الغياب"
+                            "PAYROLL_APPROVED" -> "اعتماد كشف الراتب"
+                            else -> event.action
+                        }
+                        Text("${actionLabel} • ${java.time.Instant.ofEpochMilli(event.createdAtEpochMillis)}", color = Color.White, fontSize = 12.sp)
+                        Text("قبل: ${event.beforeValue ?: "—"} | بعد: ${event.afterValue} | المرجع: ${event.transactionReference ?: "—"}", color = Muted, fontSize = 11.sp)
+                    }
+                }
+                if (auditEvents.size > 20) Text("يُعرض أحدث 20 حدثًا من أصل ${auditEvents.size}.", color = Muted, fontSize = 11.sp)
+            }
 @Composable
 private fun GoldenField(label: String, value: String, onValueChange: (String) -> Unit, keyboardType: KeyboardType) {
     OutlinedTextField(
