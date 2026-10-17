@@ -77,7 +77,7 @@ internal fun EmployeeIdCardScreen(
         value = withContext(Dispatchers.IO) {
             employee.profilePhotoUri?.let { uriText ->
                 runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(uriText))?.use { stream -> BitmapFactory.decodeStream(stream) }
+decodeSampledBitmap(context, Uri.parse(uriText), 360, 360)
                 }.getOrNull()
             }
         }
@@ -162,6 +162,7 @@ private fun createEmployeeQr(code: String): Bitmap? = runCatching {
 }.getOrNull()
 
 internal fun employeeIdPrintPageCount(employeeCount: Int): Int = employeeCount.coerceAtLeast(0)
+internal fun employeeIdRequestedPageIndices(employeeCount: Int, ranges: List<IntRange>): List<Int> = (0 until employeeCount.coerceAtLeast(0)).filter { index -> ranges.any { index >= it.first && index <= it.last } }
 
 private fun printEmployeeIds(context: Context, employees: List<EmployeeEntity>) {
     if (employees.isEmpty()) return
@@ -183,7 +184,7 @@ private class EmployeeIdPrintAdapter(private val context: Context, private val e
     override fun onWrite(pages: Array<out android.print.PageRange>, destination: ParcelFileDescriptor, cancellationSignal: CancellationSignal, callback: WriteResultCallback) {
         val document = PdfDocument()
         try {
-            val requestedPages = pages.flatMap { range -> range.start..range.end }.distinct().filter { it in employees.indices }
+            val requestedPages = employeeIdRequestedPageIndices(employees.size, pages.map { it.start..it.end })
             requestedPages.forEach { pageIndex ->
                 if (cancellationSignal.isCanceled) { callback.onWriteCancelled(); return }
                 val pageWidth = 153
@@ -200,6 +201,21 @@ private class EmployeeIdPrintAdapter(private val context: Context, private val e
     }
 }
 
+private fun decodeSampledBitmap(context: Context, uri: Uri, targetWidth: Int, targetHeight: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= targetWidth && bounds.outHeight / (sample * 2) >= targetHeight) sample *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sample.coerceAtLeast(1) }
+    return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+}
+private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): String {
+    if (paint.measureText(text) <= maxWidth) return text
+    var shortened = text
+    while (shortened.isNotEmpty() && paint.measureText("$shortened…") > maxWidth) shortened = shortened.dropLast(1)
+    return if (shortened.isEmpty()) "" else "$shortened…"
+}
 private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, height: Float, employee: EmployeeEntity) {
     val gold = android.graphics.Color.rgb(182, 143, 55)
     val black = android.graphics.Color.rgb(25, 25, 25)
@@ -218,7 +234,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, width / 2f, 19f, paint)
 
     val photo = employee.profilePhotoUri?.let { uri ->
-        runCatching { context.contentResolver.openInputStream(Uri.parse(uri))?.use(BitmapFactory::decodeStream) }.getOrNull()
+        runCatching { decodeSampledBitmap(context, Uri.parse(uri), 512, 512) }.getOrNull()
     }
     if (photo != null) {
         val size = 52f
@@ -241,11 +257,11 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = black
     paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     paint.textSize = 9f
-    canvas.drawText(employee.fullName.take(26), width / 2f, 92f, paint)
+    canvas.drawText(ellipsizeCentered(employee.fullName, paint, width - 12f), width / 2f, 92f, paint)
     paint.color = gold
     paint.textSize = 7f
     val job = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
-    canvas.drawText(job.take(30), width / 2f, 104f, paint)
+    canvas.drawText(ellipsizeCentered(job, paint, width - 12f), width / 2f, 104f, paint)
     paint.color = black
     paint.textSize = 7f
     canvas.drawText("Employee code: ${employee.code}", width / 2f, 116f, paint)
