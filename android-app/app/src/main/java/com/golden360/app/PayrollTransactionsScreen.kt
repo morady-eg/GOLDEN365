@@ -92,7 +92,7 @@ internal fun PayrollTransactionsScreen(
         if (selectedEmployee == null) selectedEmployee = employees.firstOrNull()
     }
     LaunchedEffect(selectedEmployee?.id, month) {
-        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = null
+        transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; auditEvents = emptyList(); error = null
         amount = ""; note = ""; overtimePlace = ""; overtimeTime = ""; savedReference = null; whatsappMessage = null
         val employeeId = selectedEmployee?.id
         if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
