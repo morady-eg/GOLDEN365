@@ -31,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -182,7 +183,7 @@ internal fun ReportsCenterScreen(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = kindExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = fieldColors()
+                        colors = reportsFieldColors()
                     )
                     ExposedDropdownMenu(expanded = kindExpanded, onDismissRequest = { kindExpanded = false }) {
                         ReportKind.entries.forEach { kind ->
@@ -202,7 +203,7 @@ internal fun ReportsCenterScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = fieldColors()
+                    colors = reportsFieldColors()
                 )
                 Text(
                     "التقرير يُبنى من قاعدة بيانات الرواتب والحضور المسجلة على هذا الجهاز. الحركات الملغاة تظهر في التقرير بحالتها ولا تدخل في إجمالي المبالغ الفعالة.",
@@ -424,3 +425,14 @@ private fun shareCsvFile(context: Context, uri: Uri) {
     }
     context.startActivity(Intent.createChooser(intent, "مشاركة تقرير GOLDEN 360"))
 }
+
+@Composable
+private fun reportsFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Gold,
+    unfocusedBorderColor = Color(0xFF4A4A4A),
+    focusedLabelColor = SoftGold,
+    unfocusedLabelColor = Muted,
+    cursorColor = Gold,
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White
+)
