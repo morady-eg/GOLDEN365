@@ -91,6 +91,7 @@ internal fun PayrollTransactionsScreen(
     }
     LaunchedEffect(selectedEmployee?.id, month) {
         transactions = emptyList(); monthlyTotals = emptyMap(); absentDays = "0"; approvedSnapshot = null; error = null
+        amount = ""; note = ""; overtimePlace = ""; overtimeTime = ""; savedReference = null; whatsappMessage = null
         val employeeId = selectedEmployee?.id
         if (employeeId != null && month.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) {
             runCatching {
@@ -423,7 +424,7 @@ internal fun PayrollTransactionsScreen(
             if (payrollSummary != null && selectedEmployee != null) {
                 Surface(color = Color(0xFF302719), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, Color(0xFF6A5429))) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("ملخص المرتب — ${selectedEmployee!!.fullName}", color = SoftGold, fontWeight = FontWeight.Bold)
+                        Text("ملخص المرتب — ${approvedSnapshot?.employeeName ?: selectedEmployee!!.fullName}", color = SoftGold, fontWeight = FontWeight.Bold)
                         Text("الراتب الأساسي: ${formatMoney(approvedSnapshot?.baseSalaryPiasters ?: selectedEmployee!!.baseSalaryPiasters)} ج.م", color = Color.White, fontSize = 13.sp)
                         Text("خصم الغياب: ${formatMoney(payrollSummary.absenceDeductionPiasters)} ج.م", color = Muted, fontSize = 13.sp)
                         Text("السلف: ${formatMoney(approvedSnapshot?.advancesPiasters ?: (monthlyTotals[TransactionType.ADVANCE.name] ?: 0L))} ج.م", color = Muted, fontSize = 13.sp)
@@ -472,7 +473,7 @@ internal fun PayrollTransactionsScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(transaction.reference, color = SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
-                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime}", color = Muted, fontSize = 11.sp)
+                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الموعد: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
                                 }
                                 Text("${formatMoney(transaction.amountPiasters)} ج.م", color = Color.White, fontWeight = FontWeight.SemiBold)
