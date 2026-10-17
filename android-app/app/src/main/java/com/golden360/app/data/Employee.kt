@@ -85,6 +85,19 @@ object EmployeeValidator {
     }.getOrNull()
 }
 
+object PhoneNumberFormatter {
+    /** Returns an international number suitable for wa.me, or null for invalid input. */
+    fun normalizeWhatsappPhone(raw: String): String? {
+        val digits = raw.filter { it.isDigit() }
+        return when {
+            digits.matches(Regex("01[0125][0-9]{8}")) -> "20" + digits.drop(1)
+            digits.matches(Regex("20(10|11|12|15)[0-9]{8}")) -> digits
+            digits.matches(Regex("[1-9][0-9]{9,14}")) -> digits
+            else -> null
+        }
+    }
+}
+
 object EmployeeCodeFormatter {
     fun format(sequence: Long): String {
         require(sequence > 0) { "sequence must be positive" }
