@@ -37,9 +37,15 @@ class PayrollSummaryCalculatorTest {
         assertEquals(123_456L, result.netSalaryPiasters)
     }
 
-    @Test fun rejectsArithmeticOverflowInsteadOfSilentlyWrapping() {
-        assertThrows(ArithmeticException::class.java) {
-            PayrollSummaryCalculator.calculate(Long.MAX_VALUE, 2, 0, 0, 0, 0)
-        }
+    @Test fun calculatesAbsenceDeductionForVeryLargeSalaryWithoutIntermediateOverflow() {
+        val result = PayrollSummaryCalculator.calculate(Long.MAX_VALUE, 2, 0, 0, 0, 0)
+        assertEquals(614_891_469_123_651_720L, result.absenceDeductionPiasters)
+        assertEquals(Long.MAX_VALUE - 614_891_469_123_651_720L, result.netSalaryPiasters)
+    }
+
+    @Test fun thirtyAbsenceDaysDeductExactlyTheBaseSalaryAtLongLimit() {
+        val result = PayrollSummaryCalculator.calculate(Long.MAX_VALUE, 30, 0, 0, 0, 0)
+        assertEquals(Long.MAX_VALUE, result.absenceDeductionPiasters)
+        assertEquals(0L, result.netSalaryPiasters)
     }
 }
