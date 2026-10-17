@@ -1,6 +1,7 @@
 package com.golden360.app
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -55,6 +56,7 @@ internal object PayrollReportPdf {
             val header = RectF(margin, 28f, right, 112f)
             canvas.drawRoundRect(header, 12f, 12f, paint(black))
             canvas.drawRect(margin, 100f, right, 112f, paint(gold))
+            drawLogo(canvas, context, RectF(margin + 12f, 36f, margin + 70f, 94f))
             centered(canvas, "GOLDEN 360", width / 2f, 57f, paint(android.graphics.Color.WHITE, 22f, true))
             centered(canvas, "كشف راتب تفصيلي", width / 2f, 83f, paint(android.graphics.Color.rgb(239, 211, 143), 13f, true))
             centered(canvas, "كشف معتمد • نسخة محفوظة", width / 2f, 132f, small)
@@ -147,6 +149,7 @@ internal object PayrollReportPdf {
                 canvas.drawColor(android.graphics.Color.WHITE)
                 canvas.drawRect(0f, 0f, width.toFloat(), 92f, paint(black))
                 canvas.drawRect(0f, 86f, width.toFloat(), 92f, paint(gold))
+                drawLogo(canvas, context, RectF(margin + 8f, 8f, margin + 72f, 80f))
                 centered(canvas, "GOLDEN 360", width / 2f, 31f, paint(android.graphics.Color.WHITE, 17f, true))
                 centered(canvas, "كشف الرواتب المجمع • $month", width / 2f, 57f, paint(android.graphics.Color.rgb(239, 211, 143), 12f, true))
                 val subtitle = "عدد الموظفين: ${employees.size}    |    الصفحة ${pageIndex + 1} من ${chunks.size}"
@@ -216,6 +219,22 @@ internal object PayrollReportPdf {
                 ?: throw IllegalStateException("تعذر فتح ملف PDF للكتابة")
         } finally {
             document.close()
+        }
+    }
+
+    private fun drawLogo(canvas: Canvas, context: Context, bounds: RectF) {
+        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.golden) ?: return
+        try {
+            val scale = minOf(bounds.width() / bitmap.width, bounds.height() / bitmap.height)
+            val logoWidth = bitmap.width * scale
+            val logoHeight = bitmap.height * scale
+            val left = bounds.centerX() - logoWidth / 2f
+            val top = bounds.centerY() - logoHeight / 2f
+            val destination = RectF(left, top, left + logoWidth, top + logoHeight)
+            val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            canvas.drawBitmap(bitmap, null, destination, logoPaint)
+        } finally {
+            bitmap.recycle()
         }
     }
 
