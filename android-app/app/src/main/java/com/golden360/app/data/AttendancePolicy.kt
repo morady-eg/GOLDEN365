@@ -9,7 +9,8 @@ enum class AttendanceDayStatus {
     PAID_WEEKLY_OFF,
     MANUALLY_ABSENT,
     AUTOMATIC_PRESENT,
-    SCHEDULED
+    SCHEDULED,
+    NOT_YET_HIRED
 }
 
 /**
@@ -38,8 +39,10 @@ object AttendancePolicy {
         absentDates: Set<LocalDate>,
         today: LocalDate = LocalDate.now(),
         currentTime: LocalTime = LocalTime.now(),
-        shiftStartTime: String = "08:00"
+        shiftStartTime: String = "08:00",
+        hireDate: LocalDate? = null
     ): AttendanceDayStatus = when {
+        hireDate != null && date.isBefore(hireDate) -> AttendanceDayStatus.NOT_YET_HIRED
         isWeeklyOff(date, weeklyOffDays) -> AttendanceDayStatus.PAID_WEEKLY_OFF
         date.isAfter(today) -> AttendanceDayStatus.SCHEDULED
         date == today && (!isValidShiftStartTime(shiftStartTime) || currentTime.isBefore(LocalTime.parse(shiftStartTime))) ->
@@ -51,8 +54,23 @@ object AttendancePolicy {
     fun absentDaysForMonth(
         month: YearMonth,
         weeklyOffDays: Set<DayOfWeek>,
-        absentDates: Set<LocalDate>
+        absentDates: Set<LocalDate>,
+        hireDate: LocalDate? = null
     ): Int = absentDates.count { date ->
-        YearMonth.from(date) == month && !isWeeklyOff(date, weeklyOffDays)
+        YearMonth.from(date) == month &&
+            (hireDate == null || !date.isBefore(hireDate)) &&
+            !isWeeklyOff(date, weeklyOffDays)
+    }
+
+    /** Legacy undated absences are retained; dated absences before employment are excluded. */
+    fun effectiveAbsentDaysForMonth(
+        month: YearMonth,
+        weeklyOffDays: Set<DayOfWeek>,
+        absentDates: Set<LocalDate>,
+        legacyAbsentDays: Int = 0,
+        hireDate: LocalDate? = null
+    ): Int {
+        require(legacyAbsentDays in 0..30) { "Legacy absence days must be between 0 and 30" }
+        return Math.addExact(legacyAbsentDays, absentDaysForMonth(month, weeklyOffDays, absentDates, hireDate))
     }
 }
