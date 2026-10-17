@@ -26,6 +26,10 @@ internal object BackupManager {
     fun createEncryptedBackup(context: Context, password: CharArray): ByteArray {
         require(password.size >= 10) { "استخدم كلمة مرور من 10 أحرف على الأقل" }
         val app = context.applicationContext
+        // Open both databases through their normal initialization path first. This also
+        // completes the supported plaintext-to-SQLCipher migration before copying either file.
+        EmployeeDatabase.get(app)
+        PayrollDatabase.get(app)
         val employeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
         val payrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
         closeDatabases()
