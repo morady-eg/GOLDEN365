@@ -53,6 +53,7 @@ internal fun PayrollTransactionsScreen(
     var overtimeDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var overtimeDatePickerOpen by remember { mutableStateOf(false) }
     var overtimeTime by remember { mutableStateOf("") }
+    var overtimeTimePickerOpen by remember { mutableStateOf(false) }
     var absentDays by remember { mutableStateOf("0") }
     var monthlyTotals by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var transactions by remember { mutableStateOf<List<PayrollTransactionEntity>>(emptyList()) }
@@ -244,7 +245,44 @@ internal fun PayrollTransactionsScreen(
                         DatePicker(state = datePickerState)
                     }
                 }
-                GoldenField("موعد الوردية", overtimeTime, { overtimeTime = it; savedReference = null }, KeyboardType.Text)
+                OutlinedTextField(
+                    value = overtimeTime,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("موعد الوردية") },
+                    trailingIcon = {
+                        IconButton(onClick = { overtimeTimePickerOpen = true }) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = "اختيار الوقت", tint = SoftGold)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = fieldColors()
+                )
+                if (overtimeTimePickerOpen) {
+                    val parsedTime = overtimeTime.split(":").mapNotNull { it.toIntOrNull() }
+                    val timePickerState = rememberTimePickerState(
+                        initialHour = parsedTime.getOrNull(0)?.coerceIn(0, 23) ?: 8,
+                        initialMinute = parsedTime.getOrNull(1)?.coerceIn(0, 59) ?: 0,
+                        is24Hour = true
+                    )
+                    AlertDialog(
+                        onDismissRequest = { overtimeTimePickerOpen = false },
+                        title = { Text("اختيار موعد الوردية", color = Color.White) },
+                        text = { TimePicker(state = timePickerState) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                overtimeTime = "%02d:%02d".format(timePickerState.hour, timePickerState.minute)
+                                overtimeTimePickerOpen = false
+                                savedReference = null
+                            }) { Text("تأكيد", color = SoftGold) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { overtimeTimePickerOpen = false }) { Text("إلغاء", color = Muted) }
+                        },
+                        containerColor = Panel
+                    )
+                }
                 Surface(color = Panel, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF4A3D24))) {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                         Text("قيمة الوردية المحددة للموظف", color = Muted, fontSize = 12.sp)
