@@ -22,6 +22,7 @@ import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.EmployeeEntity
 import com.golden360.app.data.PayrollTransactionDao
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -42,7 +43,15 @@ internal fun AttendanceScreen(
     var payrollApproved by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var clockNow by remember { mutableStateOf(java.time.LocalDateTime.now()) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            clockNow = java.time.LocalDateTime.now()
+            delay(30_000L)
+        }
+    }
 
     LaunchedEffect(employees) {
         if (selectedEmployee == null || employees.none { it.id == selectedEmployee?.id }) {
@@ -72,7 +81,7 @@ internal fun AttendanceScreen(
 
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE d MMMM", Locale("ar")) }
     val weeklyOffDays = AttendancePolicy.parseWeeklyOffDays(selectedEmployee?.weeklyOffDays.orEmpty())
-    val today = LocalDate.now()
+    val today = clockNow.toLocalDate()
     val monthDates = remember(month) { (1..month.lengthOfMonth()).map { month.atDay(it) } }
 
     Column(
@@ -167,7 +176,7 @@ internal fun AttendanceScreen(
                     contentPadding = PaddingValues(bottom = 12.dp)
                 ) {
                     items(monthDates, key = { it.toString() }) { date ->
-                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, java.time.LocalTime.now(), selectedEmployee?.shiftStartTime ?: "08:00")
+                        val status = AttendancePolicy.status(date, weeklyOffDays, absentDates, today, clockNow.toLocalTime(), selectedEmployee?.shiftStartTime ?: "08:00")
                         val statusLabel = when (status) {
                             AttendanceDayStatus.PAID_WEEKLY_OFF -> "إجازة أسبوعية مدفوعة"
                             AttendanceDayStatus.MANUALLY_ABSENT -> "غياب مسجل — يُخصم حسب سياسة المرتب"
