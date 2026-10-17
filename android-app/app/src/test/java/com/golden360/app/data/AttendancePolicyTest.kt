@@ -60,6 +60,18 @@ class AttendancePolicyTest {
         assertEquals(selected, AttendancePolicy.parseWeeklyOffDays(AttendancePolicy.serializeWeeklyOffDays(selected)))
     }
 
+    @Test fun monthlyAbsenceCountIgnoresWeeklyOffDatesAndOtherMonths() {
+        val month = YearMonth.of(2026, 10)
+        val offDays = setOf(DayOfWeek.FRIDAY)
+        val absences = setOf(
+            LocalDate.parse("2026-10-15"),
+            LocalDate.parse("2026-10-16"),
+            LocalDate.parse("2026-10-19"),
+            LocalDate.parse("2026-11-02")
+        )
+        assertEquals(2, AttendancePolicy.absentDaysForMonth(month, offDays, absences))
+    }
+
     @Test fun rejectsInvalidShiftStartTime() {
         assertTrue(AttendancePolicy.isValidShiftStartTime("08:30"))
         assertFalse(AttendancePolicy.isValidShiftStartTime("25:30"))
