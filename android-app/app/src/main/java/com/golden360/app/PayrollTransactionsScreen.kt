@@ -368,7 +368,10 @@ internal fun PayrollTransactionsScreen(
                         saving = true
                         scope.launch {
                             runCatching {
-                                dao.create(employee.id, selectedType, month, enteredAmount, count, note,
+                                val currentEmployee = com.golden360.app.data.EmployeeDatabase.get(context).employeeDao().getById(employee.id)
+                                 ?: error("الموظف لم يعد موجودًا في قاعدة البيانات")
+                             require(!currentEmployee.archived) { "لا يمكن تسجيل حركة مالية لموظف مؤرشف" }
+                             dao.create(currentEmployee.id, selectedType, month, enteredAmount, count, note,
                                     overtimePlace = if (selectedType == TransactionType.OVERTIME) overtimePlace else "",
                                     overtimeDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else "",
                                     overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
@@ -453,7 +456,7 @@ internal fun PayrollTransactionsScreen(
                                             overtimePiasters = monthlyTotals[TransactionType.OVERTIME.name] ?: 0L,
                                             bonusesPiasters = monthlyTotals[TransactionType.BONUS.name] ?: 0L,
                                             netSalaryPiasters = summary.netSalaryPiasters, approvedAtEpochMillis = System.currentTimeMillis()
-                                        ).also { dao.insertPayrollSnapshot(it) }
+                                        ).also { dao.approvePayrollSnapshot(it) }
                                     }.onSuccess { snapshot -> approvedSnapshot = snapshot; pendingPayrollSnapshot = snapshot; payrollPdfLauncher.launch("كشف_راتب_${snapshot.employeeCode}_${snapshot.monthKey}.pdf") }
                                         .onFailure { error = "تعذر اعتماد الكشف: ${it.message ?: "قد يكون الكشف معتمدًا بالفعل"}" }
                                 }
