@@ -95,8 +95,11 @@ private fun Golden360App(dao: EmployeeDao) {
 
     suspend fun refresh() {
         loading = true
-        employees = dao.getActiveEmployees()
-        loading = false
+        try {
+            employees = dao.getActiveEmployees()
+        } finally {
+            loading = false
+        }
     }
     LaunchedEffect(dao) {
         runCatching { refresh() }.onFailure {
@@ -132,7 +135,10 @@ private fun Golden360App(dao: EmployeeDao) {
                     },
                     actions = {
                         if (activeTab == "employees") {
-                            IconButton(onClick = { searchMode = !searchMode; if (!searchMode) searchQuery = "" }) {
+                            IconButton(onClick = {
+                                if (searchMode) searchQuery = ""
+                                searchMode = !searchMode
+                            }) {
                                 Icon(Icons.Default.Search, contentDescription = "بحث", tint = Gold)
                             }
                         }
@@ -500,8 +506,16 @@ private fun EmployeeListScreen(
             employees.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.Badge, contentDescription = null, tint = Gold, modifier = Modifier.size(46.dp))
-                    Text("لا يوجد موظفون حتى الآن", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("ابدأ بإضافة أول ملف موظف", color = Muted, fontSize = 13.sp)
+                    Text(
+                        if (searchMode && query.isNotBlank()) "لا توجد نتائج مطابقة للبحث" else "لا يوجد موظفون حتى الآن",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (searchMode && query.isNotBlank()) "جرّب اسمًا أو كودًا آخر، أو امسح البحث" else "ابدأ بإضافة أول ملف موظف",
+                        color = Muted,
+                        fontSize = 13.sp
+                    )
                 }
             }
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 88.dp)) {
