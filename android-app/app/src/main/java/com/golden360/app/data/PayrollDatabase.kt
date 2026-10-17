@@ -125,7 +125,7 @@ interface PayrollTransactionDao {
         require(employeeId > 0) { "يجب اختيار موظف صحيح" }
         val date = java.time.LocalDate.parse(dateKey)
         require(java.time.YearMonth.from(date).toString() == monthKey) { "تاريخ الغياب يجب أن يطابق الشهر المحدد" }
-        require(!AttendancePolicy.isWeeklyOff(date, AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv))) {
+        require(!absent || !AttendancePolicy.isWeeklyOff(date, AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv))) {
             "الإجازة الأسبوعية مدفوعة الأجر ولا تسجل غيابًا"
         }
         require(getPayrollSnapshot(employeeId, monthKey) == null) { "لا يمكن تعديل الغياب بعد اعتماد كشف الراتب" }
