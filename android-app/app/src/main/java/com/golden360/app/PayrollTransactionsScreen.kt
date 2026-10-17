@@ -75,6 +75,11 @@ internal fun PayrollTransactionsScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var savedReference by remember { mutableStateOf<String?>(null) }
+    var referenceQuery by remember { mutableStateOf("") }
+    var referenceResult by remember { mutableStateOf<PayrollTransactionEntity?>(null) }
+    var referenceSearchMessage by remember { mutableStateOf<String?>(null) }
+    var searchingReference by remember { mutableStateOf(false) }
+    var sharePayrollPdfAfterSave by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
@@ -86,8 +91,11 @@ internal fun PayrollTransactionsScreen(
     var voidReason by remember { mutableStateOf("") }
     val payrollPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val snapshot = pendingPayrollSnapshot
-        if (uri != null && snapshot != null) runCatching { writePayrollSnapshotPdf(context, uri, snapshot) }
-            .onFailure { error = "تعذر إنشاء ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        if (uri != null && snapshot != null) runCatching {
+            writePayrollSnapshotPdf(context, uri, snapshot)
+            if (sharePayrollPdfAfterSave) sharePdfFile(context, uri, "كشف راتب ${snapshot.employeeName}")
+        }.onFailure { error = "تعذر إنشاء/مشاركة ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
+        sharePayrollPdfAfterSave = false
         pendingPayrollSnapshot = null
     }
 
@@ -458,6 +466,68 @@ internal fun PayrollTransactionsScreen(
             } else if (selectedEmployee != null) {
                 Text("أدخل أيام غياب صحيحة من 0 إلى 30 لعرض صافي المرتب.", color = Color(0xFFFF8A80), fontSize = 12.sp)
             }
+            Text("البحث بالرقم المرجعي", color = SoftGold, fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = referenceQuery,
+                onValueChange = { referenceQuery = it; referenceSearchMessage = null },
+                label = { Text("أدخل الرقم المرجعي للعملية") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                shape = RoundedCornerShape(12.dp),
+                colors = fieldColors()
+            )
+            Button(
+                onClick = {
+                    val query = referenceQuery.trim()
+                    if (query.isBlank()) {
+                        referenceResult = null
+                        referenceSearchMessage = "أدخل الرقم المرجعي أولاً."
+                    } else {
+                        searchingReference = true
+                        referenceSearchMessage = null
+                        scope.launch {
+                            runCatching { dao.getByReference(query.uppercase()) }
+                                .onSuccess { result ->
+                                    referenceResult = result
+                                    referenceSearchMessage = if (result == null) "لم يتم العثور على عملية بهذا الرقم المرجعي." else null
+                                }
+                                .onFailure { referenceResult = null; referenceSearchMessage = "تعذر البحث الآن. حاول مرة أخرى." }
+                            searchingReference = false
+                        }
+                    }
+                },
+                enabled = !searchingReference,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+            ) { Text(if (searchingReference) "جارٍ البحث..." else "بحث عن العملية", fontWeight = FontWeight.Bold) }
+            if (referenceSearchMessage != null) Text(referenceSearchMessage!!, color = Color(0xFFFFA39A), fontSize = 12.sp)
+            referenceResult?.let { result ->
+                val employee = employees.firstOrNull { it.id == result.employeeId }
+                Surface(
+                    color = Color(0xFF302719),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFF6A5429)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("تفاصيل العملية", color = SoftGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("الرقم المرجعي: ${result.reference}", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("الموظف: ${employee?.fullName ?: "موظف غير موجود في القائمة الحالية"}${employee?.code?.let { " • الكود: $it" } ?: ""}", color = Color.White)
+                        Text("نوع العملية: ${TransactionType.entries.firstOrNull { it.name == result.type }?.arabicLabel ?: result.type}", color = Color.White)
+                        Text("المبلغ: ${formatMoney(result.amountPiasters)} ج.م", color = SoftGold, fontWeight = FontWeight.Bold)
+                        Text("الشهر: ${result.monthKey} • العدد: ${result.quantity}", color = Muted, fontSize = 12.sp)
+                        Text("تاريخ التسجيل: ${java.time.Instant.ofEpochMilli(result.createdAtEpochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().toString().replace('T', ' ')}", color = Muted, fontSize = 12.sp)
+                        if (result.type == TransactionType.OVERTIME.name) {
+                            Text("مكان الوردية: ${result.overtimePlace}", color = Color.White)
+                            Text("تاريخ الوردية: ${result.overtimeDate} • الفترة: ${result.overtimeTime}", color = Color.White)
+                        }
+                        if (result.note.isNotBlank()) Text("ملاحظات: ${result.note}", color = Color.White)
+                        if (result.voidedAtEpochMillis != null) Text("الحالة: ملغاة • السبب: ${result.voidReason ?: "غير محدد"}", color = Color(0xFFFFA39A), fontWeight = FontWeight.Bold)
+                        else Text("الحالة: مسجلة", color = Color(0xFFB7D88A), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             Text("حركات الشهر المحدد", color = SoftGold, fontWeight = FontWeight.Bold)
             if (transactions.isEmpty()) {
                 Text("لا توجد حركات مسجلة لهذا الموظف في هذا الشهر.", color = Muted, fontSize = 12.sp)
@@ -662,6 +732,16 @@ private fun formatMoney(piasters: Long): String = java.math.BigDecimal.valueOf(p
 
 private fun writePayrollSnapshotPdf(context: Context, uri: Uri, snapshot: PayrollSnapshotEntity) {
     PayrollReportPdf.writeIndividual(context, uri, snapshot)
+}
+
+private fun sharePdfFile(context: Context, uri: Uri, title: String) {
+    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "application/pdf"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        clipData = android.content.ClipData.newUri(context.contentResolver, title, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(sendIntent, "مشاركة ملف PDF"))
 }
 
 @Composable
