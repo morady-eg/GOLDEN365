@@ -31,4 +31,11 @@ class EmployeeIdCardTest {
     fun qrCodeRejectsBlankEmployeeCode() {
         createEmployeeQrMatrix("   ")
     }
+    
+    @Test
+    fun batchPrintingCreatesOnePagePerSelectedEmployee() {
+        assertEquals(0, employeeIdPrintPageCount(0))
+        assertEquals(1, employeeIdPrintPageCount(1))
+        assertEquals(5, employeeIdPrintPageCount(5))
+    }
 }
