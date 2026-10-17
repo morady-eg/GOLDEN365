@@ -40,6 +40,18 @@ data class PayrollTransactionEntity(
     val createdAtEpochMillis: Long
 )
 
+@Entity(
+    tableName = "daily_absences",
+    primaryKeys = ["employeeId", "dateKey"],
+    indices = [Index(value = ["employeeId", "monthKey"])]
+)
+data class DailyAbsenceEntity(
+    val employeeId: Long,
+    val dateKey: String,
+    val monthKey: String,
+    val markedAtEpochMillis: Long
+)
+
 @Entity(tableName = "monthly_attendance", primaryKeys = ["employeeId", "monthKey"])
 data class MonthlyAttendanceEntity(val employeeId: Long, val monthKey: String, val absentDays: Int)
 
@@ -89,6 +101,55 @@ interface PayrollTransactionDao {
 
     @Query("SELECT * FROM monthly_attendance WHERE employeeId = :employeeId AND monthKey = :monthKey LIMIT 1")
     suspend fun getAttendance(employeeId: Long, monthKey: String): MonthlyAttendanceEntity?
+
+    @Query("SELECT * FROM daily_absences WHERE employeeId = :employeeId AND monthKey = :monthKey ORDER BY dateKey")
+    suspend fun getDailyAbsences(employeeId: Long, monthKey: String): List<DailyAbsenceEntity>
+
+    @Query("SELECT * FROM daily_absences WHERE employeeId = :employeeId AND dateKey = :dateKey LIMIT 1")
+    suspend fun getDailyAbsence(employeeId: Long, dateKey: String): DailyAbsenceEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDailyAbsence(absence: DailyAbsenceEntity)
+
+    @Query("DELETE FROM daily_absences WHERE employeeId = :employeeId AND dateKey = :dateKey")
+    suspend fun deleteDailyAbsence(employeeId: Long, dateKey: String)
+
+    @Transaction
+    suspend fun setDailyAbsence(
+        employeeId: Long,
+        dateKey: String,
+        monthKey: String,
+        weeklyOffDaysCsv: String,
+        absent: Boolean
+    ) {
+        require(employeeId > 0) { "يجب اختيار موظف صحيح" }
+        val date = java.time.LocalDate.parse(dateKey)
+        require(java.time.YearMonth.from(date).toString() == monthKey) { "تاريخ الغياب يجب أن يطابق الشهر المحدد" }
+        require(!AttendancePolicy.isWeeklyOff(date, AttendancePolicy.parseWeeklyOffDays(weeklyOffDaysCsv))) {
+            "الإجازة الأسبوعية مدفوعة الأجر ولا تسجل غيابًا"
+        }
+        require(getPayrollSnapshot(employeeId, monthKey) == null) { "لا يمكن تعديل الغياب بعد اعتماد كشف الراتب" }
+        val previous = getDailyAbsence(employeeId, dateKey)
+        if (absent && previous == null) {
+            upsertDailyAbsence(DailyAbsenceEntity(employeeId, dateKey, monthKey, System.currentTimeMillis()))
+        } else if (!absent && previous != null) {
+            deleteDailyAbsence(employeeId, dateKey)
+        }
+        val allAbsences = getDailyAbsences(employeeId, monthKey)
+        upsertAttendance(MonthlyAttendanceEntity(employeeId, monthKey, allAbsences.size))
+        if ((absent && previous == null) || (!absent && previous != null)) {
+            insertAuditEvent(
+                PayrollAuditEventEntity(
+                    action = if (absent) "ABSENCE_DATE_MARKED" else "ABSENCE_DATE_CLEARED",
+                    employeeId = employeeId,
+                    monthKey = monthKey,
+                    beforeValue = if (previous == null) "PRESENT" else "ABSENT",
+                    afterValue = if (absent) "ABSENT:$dateKey" else "PRESENT:$dateKey",
+                    createdAtEpochMillis = System.currentTimeMillis()
+                )
+            )
+        }
+    }
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAttendance(attendance: MonthlyAttendanceEntity)
 
@@ -199,8 +260,8 @@ interface PayrollTransactionDao {
 }
 
 @Database(
-    entities = [PayrollTransactionEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class, PayrollAuditEventEntity::class],
-    version = 4,
+    entities = [PayrollTransactionEntity::class, DailyAbsenceEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class, PayrollAuditEventEntity::class],
+    version = 5,
     exportSchema = false
 )
 abstract class PayrollDatabase : RoomDatabase() {
@@ -228,6 +289,13 @@ abstract class PayrollDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE TABLE IF NOT EXISTS daily_absences (employeeId INTEGER NOT NULL, dateKey TEXT NOT NULL, monthKey TEXT NOT NULL, markedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(employeeId, dateKey))")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_daily_absences_employeeId_monthKey ON daily_absences(employeeId, monthKey)")
+            }
+        }
+
         @Volatile private var instance: PayrollDatabase? = null
 
         fun get(context: Context): PayrollDatabase = instance ?: synchronized(this) {
@@ -237,7 +305,7 @@ abstract class PayrollDatabase : RoomDatabase() {
                     context.applicationContext,
                     PayrollDatabase::class.java,
                     "golden360_payroll.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { instance = it }
             }
         }
