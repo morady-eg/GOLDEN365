@@ -37,9 +37,10 @@ internal fun PayrollOverviewScreen(
     employees: List<EmployeeEntity>,
     dao: PayrollTransactionDao,
     modifier: Modifier = Modifier,
+    initialMonth: String = YearMonth.now().toString(),
     onOpenTransactions: (TransactionType, Long?, String) -> Unit
 ) {
-    var month by remember { mutableStateOf(YearMonth.now()) }
+    var month by remember(initialMonth) { mutableStateOf(runCatching { YearMonth.parse(initialMonth) }.getOrDefault(YearMonth.now())) }
     var rows by remember { mutableStateOf<List<MonthlyPayrollRow>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
