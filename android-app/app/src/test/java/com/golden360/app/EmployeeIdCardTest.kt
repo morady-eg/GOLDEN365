@@ -43,6 +43,7 @@ class EmployeeIdCardTest {
     @Test
     fun employeeIdTextIsEnglishAndUppercase() {
         assertEquals("ADMINISTRATOR", employeeJobTitleEnglish("ADMIN"))
+        assertEquals("ADMINISTRATOR", employeeJobTitleEnglish("إداري"))
         assertEquals("TECHNICIAN", employeeJobTitleEnglish("technician"))
         assertEquals("SHIFT MANAGER", employeeJobTitleEnglish("shift_manager"))
     }
