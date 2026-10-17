@@ -192,8 +192,8 @@ private class EmployeeIdPrintAdapter(private val context: Context, private val e
             val requestedPages = employeeIdRequestedPageIndices(employees.size, pages.map { it.start..it.end })
             requestedPages.forEach { pageIndex ->
                 if (cancellationSignal.isCanceled) { callback.onWriteCancelled(); return }
-                val pageWidth = 153
-                val pageHeight = 244
+                val pageWidth = 164
+                val pageHeight = 258
                 val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex + 1).create())
                 drawEmployeeCard(context, page.canvas, pageWidth.toFloat(), pageHeight.toFloat(), employees[pageIndex])
                 document.finishPage(page)
