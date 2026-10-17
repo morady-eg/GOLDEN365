@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Save
@@ -95,6 +96,7 @@ private fun Golden360App(dao: EmployeeDao) {
     var showPayroll by remember { mutableStateOf(false) }
     var showIdCard by remember { mutableStateOf(false) }
     var showBackupScreen by remember { mutableStateOf(false) }
+    var showReports by remember { mutableStateOf(false) }
     var selectedIdEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedIdEmployees by remember { mutableStateOf<List<EmployeeEntity>>(emptyList()) }
     var selectedType by remember { mutableStateOf(com.golden360.app.data.TransactionType.ADVANCE) }
@@ -133,7 +135,7 @@ private fun Golden360App(dao: EmployeeDao) {
         containerColor = Black,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen) {
+            if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports) {
                 TopAppBar(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -168,11 +170,11 @@ private fun Golden360App(dao: EmployeeDao) {
                     title = {
                         Column {
                             Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
+                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; showReports -> "مركز التقارير"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; showBackupScreen = false; selectedIdEmployee = null; editing = null }) {
+                        IconButton(onClick = { showForm = false; showPayroll = false; showIdCard = false; showBackupScreen = false; showReports = false; selectedIdEmployee = null; editing = null }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "رجوع", tint = Gold)
                         }
                     },
@@ -218,6 +220,12 @@ private fun Golden360App(dao: EmployeeDao) {
         }
     ) { padding ->
         when {
+            showReports -> ReportsCenterScreen(
+                employees = employees,
+                dao = PayrollDatabase.get(LocalContext.current).transactions(),
+                modifier = Modifier.padding(padding),
+                onBack = { showReports = false }
+            )
             showBackupScreen -> BackupRestoreScreen(
                 modifier = Modifier.padding(padding),
                 onBack = { showBackupScreen = false },
@@ -271,7 +279,8 @@ private fun Golden360App(dao: EmployeeDao) {
             activeTab == "more" -> MoreServicesScreen(
                 modifier = Modifier.padding(padding),
                 onOpen = { openTransactions(it) },
-                onBackup = { showBackupScreen = true }
+                onBackup = { showBackupScreen = true },
+                onReports = { showReports = true }
             )
             activeTab == "payroll" -> PayrollOverviewScreen(
                 employees = employees,
@@ -459,13 +468,14 @@ private fun LuxuryActionCard(
 }
 
 @Composable
-private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golden360.app.data.TransactionType) -> Unit, onBackup: () -> Unit) {
+private fun MoreServicesScreen(modifier: Modifier = Modifier, onOpen: (com.golden360.app.data.TransactionType) -> Unit, onBackup: () -> Unit, onReports: () -> Unit) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("المعاملات والخدمات", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text("كل عمليات الإضافة والخصم في مكان واحد، بدون تكرارها في باقي الشاشات.", color = Muted, fontSize = 13.sp)
+        LuxuryActionCard("مركز التقارير", "كشف الرواتب والحضور والسلف والجزاءات والمكافآت وتصدير Excel", Icons.Default.Assessment, Modifier.fillMaxWidth(), onReports)
         SectionTitle("الإضافات المالية")
         LuxuryActionCard("تسجيل سلفة", "إضافة سلفة لموظف ومتابعة خصمها", Icons.Default.Payments, Modifier.fillMaxWidth()) {
             onOpen(com.golden360.app.data.TransactionType.ADVANCE)
