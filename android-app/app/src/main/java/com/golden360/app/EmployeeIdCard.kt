@@ -7,6 +7,10 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextDirectionHeuristics
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.CancellationSignal
@@ -49,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.golden360.app.data.EmployeeEntity
@@ -142,7 +147,10 @@ internal fun EmployeeIdCardScreen(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    maxLines = 2
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     employeeJobTitleEnglish(employee.jobTitle),
@@ -350,7 +358,26 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = black
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     paint.textSize = trimWidth * 0.052f
-    canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
+    // Canvas.drawText does not shape Arabic text reliably. StaticLayout uses Android's
+    // bidi and Arabic shaping engine so connected glyphs render correctly on printed IDs.
+    val nameTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
+        color = black
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        textSize = paint.textSize
+        textAlign = Paint.Align.LEFT
+    }
+    val nameLayout = StaticLayout.Builder
+        .obtain(employee.fullName.trim(), 0, employee.fullName.trim().length, nameTextPaint, (trimWidth - 12f).toInt().coerceAtLeast(1))
+        .setAlignment(Layout.Alignment.ALIGN_CENTER)
+        .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
+        .setIncludePad(false)
+        .setMaxLines(1)
+        .setEllipsize(android.text.TextUtils.TruncateAt.END)
+        .build()
+    canvas.save()
+    canvas.translate(trim.left + 6f, nameY - nameLayout.height)
+    nameLayout.draw(canvas)
+    canvas.restore()
 
     val job = employeeJobTitleEnglish(employee.jobTitle)
     paint.color = deepGold
