@@ -104,6 +104,6 @@ object PhoneNumberFormatter {
 object EmployeeCodeFormatter {
     fun format(sequence: Long): String {
         require(sequence > 0) { "sequence must be positive" }
-        return "GS_" + sequence.toString().padStart(6, '0')
+        return "GS" + sequence.toString().padStart(3, '0')
     }
 }
