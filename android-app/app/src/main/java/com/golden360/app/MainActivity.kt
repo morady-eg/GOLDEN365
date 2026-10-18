@@ -1020,7 +1020,7 @@ private fun EmployeeFormScreen(
             AttachmentRow("بطاقة الرقم القومي — الوجه الخلفي", idBack != null, if (idBack == null) "اختر صورة" else "تغيير") { backPicker.launch(arrayOf("image/*")) }
             SectionTitle("مواعيد الوردية والإجازة الأسبوعية")
             Text("يُفترض الحضور تلقائيًا في يوم العمل ما لم تسجّل غيابًا يدويًا. لا يلزم تسجيل الانصراف.", color = Muted, fontSize = 12.sp)
-            GoldenField("موعد بداية الوردية *", shiftStartTime, { shiftStartTime = it; errors = errors - "shiftStartTime" }, errors["shiftStartTime"], "مثال: 08:00")
+            GoldenTimeField("موعد بداية الوردية *", shiftStartTime, { shiftStartTime = it; errors = errors - "shiftStartTime" }, errors["shiftStartTime"])
             Text("حدد أيام الإجازة الأسبوعية المدفوعة (لن يُخصم عنها أي مبلغ):", color = Color.White, fontSize = 13.sp)
             val weekdays = listOf(
                 java.time.DayOfWeek.SATURDAY to "السبت",
@@ -1148,6 +1148,67 @@ private fun GoldenDateField(
         ) {
             DatePicker(state = pickerState)
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GoldenTimeField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    error: String?
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val parsedTime = remember(value) {
+        runCatching { java.time.LocalTime.parse(value) }.getOrDefault(java.time.LocalTime.of(8, 0))
+    }
+    val displayTime = remember(parsedTime) {
+        val hour12 = when (val hour = parsedTime.hour % 12) { 0 -> 12; else -> hour }
+        String.format(java.util.Locale.ROOT, "%02d:%02d", hour12, parsedTime.minute) +
+            if (parsedTime.hour < 12) " ص" else " م"
+    }
+    OutlinedTextField(
+        value = displayTime,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        placeholder = { Text("اختر وقت الوردية (ص / م)", color = Muted) },
+        trailingIcon = {
+            IconButton(onClick = { showPicker = true }) {
+                Icon(Icons.Default.AccessTime, contentDescription = "اختيار وقت الوردية", tint = SoftGold)
+            }
+        },
+        modifier = Modifier.fillMaxWidth().clickable { showPicker = true },
+        singleLine = true,
+        isError = error != null,
+        supportingText = { if (error != null) Text(error) },
+        shape = RoundedCornerShape(14.dp),
+        colors = fieldColors()
+    )
+    if (showPicker) {
+        val pickerState = rememberTimePickerState(
+            initialHour = parsedTime.hour,
+            initialMinute = parsedTime.minute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text("موعد بداية الوردية") },
+            text = { TimePicker(state = pickerState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onValueChange(String.format(java.util.Locale.ROOT, "%02d:%02d", pickerState.hour, pickerState.minute))
+                    showPicker = false
+                }) { Text("تأكيد") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("إلغاء") }
+            },
+            containerColor = Panel,
+            titleContentColor = SoftGold,
+            textContentColor = Color.White
+        )
     }
 }
 
