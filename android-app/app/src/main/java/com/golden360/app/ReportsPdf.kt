@@ -65,8 +65,8 @@ internal object ReportsPdf {
                         index % 2 == 0 -> android.graphics.Color.rgb(249, 248, 245)
                         else -> white
                     }
-                    canvas.drawRect(MARGIN, y, PAGE_WIDTH - MARGIN, y + rowHeight, paint(rowColor))
-                    canvas.drawLine(MARGIN, y + rowHeight, PAGE_WIDTH - MARGIN, y + rowHeight, paint(line, 0.8f))
+                    canvas.drawRect(MARGIN, y, pageWidth - MARGIN, y + rowHeight, paint(rowColor))
+                    canvas.drawLine(MARGIN, y + rowHeight, pageWidth - MARGIN, y + rowHeight, paint(line, 0.8f))
                     drawRow(canvas, headers, row, widths, y, rowHeight, isTotal)
                     y += rowHeight
                 }
