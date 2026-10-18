@@ -198,7 +198,7 @@ private fun createEmployeeQr(code: String): Bitmap? = runCatching {
     Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).also { bitmap ->
         for (y in 0 until matrix.height) {
             for (x in 0 until matrix.width) {
-                bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.rgb(51, 65, 85) else android.graphics.Color.WHITE)
             }
         }
     }
