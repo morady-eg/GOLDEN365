@@ -137,7 +137,7 @@ internal fun EmployeeIdCardScreen(
                     }
                 }
                 Text(
-                    employee.fullName.uppercase(java.util.Locale.ROOT),
+                    employee.fullName,
                     color = Color(0xFF0D0E0F),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -145,7 +145,7 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 2
                 )
                 Text(
-                    employeeJobTitleEnglish(employee.jobTitle),
+                    employee.jobTitle,
                     color = Color(0xFF7E5E24),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
