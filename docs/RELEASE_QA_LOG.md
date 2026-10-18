@@ -10,12 +10,12 @@
 - The `golden1.png` asset is present at `android-app/app/src/main/res/drawable-nodpi/golden1.png` and is referenced by the app's main header. This corrects an outdated statement in the manual checklist below.
 - Automated builds are not proof of successful physical-device testing or a production-ready signed release.
 
-## Follow-up fixes under validation
+## Follow-up fixes merged and verified in CI
 
-- The follow-up branch `fix/pre-release-backup-memory-and-qa` corrects the outdated `golden1.png` checklist statement.
-- Backup archive creation now streams database files into a temporary ZIP and streams encryption to a temporary file; restore streams decryption and ZIP entries to staging files instead of retaining all database/archive copies in heap memory.
-- Streaming encryption/decryption has unit tests for large-payload round-trip and tampered ciphertext rejection.
-- These changes are not approved for `main` until the new CI run passes and the pull request is reviewed. Device-level backup/restore validation remains required.
+- PR [#19](https://github.com/morady-eg/GOLDEN365/pull/19) was merged into `main` as commit `59cf0b9562797db657685f9b4d4a824ad94f6b2b`.
+- Android CI run [39083789897](https://github.com/morady-eg/GOLDEN365/actions/runs/39083789897) succeeded for the PR commit: unit tests, Debug/Release builds, and QA artifact uploads all passed.
+- Backup creation now streams database files into a temporary ZIP and streams encryption to a temporary file; restore streams decryption and ZIP entries to bounded staging files to reduce intermediate heap usage.
+- Streaming encryption/decryption tests cover large-payload round-trip and tampered ciphertext rejection. Device-level backup/restore validation remains required.
 
 ## Previously observed build issue
 
