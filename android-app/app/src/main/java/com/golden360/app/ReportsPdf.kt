@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Builds a paginated, print-ready PDF for every report kind. The resulting file is kept in
+ * Builds a paginated, print-first PDF for every report kind. The resulting file is kept in
  * the app cache only and is shared through FileProvider; it is not written to Downloads.
  */
 internal object ReportsPdf {
