@@ -368,7 +368,7 @@ private suspend fun buildReportPayload(
                 if (active) total = Math.addExact(total, transaction.amountPiasters)
                 count++
                 val created = runCatching {
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT)
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a", Locale.ENGLISH)
                         .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(transaction.createdAtEpochMillis))
                 }.getOrDefault("")
                 rows += listOf(
