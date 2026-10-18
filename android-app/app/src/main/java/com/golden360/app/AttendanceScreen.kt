@@ -132,7 +132,7 @@ internal fun AttendanceScreen(
                             Icon(Icons.Default.ChevronLeft, contentDescription = "الشهر التالي", tint = SoftGold)
                         }
                     }
-                    Text("بداية الوردية: ${selectedEmployee?.shiftStartTime ?: "—"}", color = Color.White, fontSize = 12.sp)
+                    Text("بداية الوردية: ${selectedEmployee?.shiftStartTime?.let(::formatShiftTimeForDisplay) ?: "—"}", color = Color.White, fontSize = 12.sp)
                     Text(
                         "الإجازة الأسبوعية المدفوعة: " + if (weeklyOffDays.isEmpty()) "لم تُحدد" else weeklyOffDays.sortedBy { it.value }.joinToString("، ") { day ->
                             when (day) {
