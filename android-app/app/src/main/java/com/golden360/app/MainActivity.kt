@@ -1094,6 +1094,7 @@ private fun EmployeeFormScreen(
 private fun formatMoney(piasters: Long): String =
     java.math.BigDecimal.valueOf(piasters, 2).stripTrailingZeros().toPlainString()
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoldenDateField(
     label: String,
