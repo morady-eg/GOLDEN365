@@ -153,17 +153,17 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 1
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFF29251C), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFFECE7DB), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("EMPLOYEE NO.  ", color = Color(0xFFC6B78F), fontSize = 8.sp)
-                    Text(employee.code, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("EMPLOYEE NO.  ", color = Color(0xFF6E6552), fontSize = 8.sp)
+                    Text(employee.code, color = Color(0xFF171717), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
                 if (qr != null) {
                     Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(61.dp))
                 }
-                Text("SCAN TO IDENTIFY", color = Color(0xFFC6B78F), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("SCAN TO IDENTIFY", color = Color(0xFF6E6552), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
         Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
@@ -266,7 +266,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val black = android.graphics.Color.rgb(13, 14, 15)
     val panel = android.graphics.Color.rgb(28, 29, 30)
     val panelLight = android.graphics.Color.rgb(43, 40, 33)
-    val ivory = android.graphics.Color.rgb(245, 242, 234)
+    val ivory = android.graphics.Color.rgb(255, 255, 255)
     val white = android.graphics.Color.WHITE
     val muted = android.graphics.Color.rgb(190, 184, 168)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -362,11 +362,11 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     // Employee number label and value are placed on separate lines within the pill.
     val codeY = jobY + trimHeight * 0.075f
     val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.045f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.025f)
-    paint.color = panelLight
+    paint.color = ivory
     canvas.drawRoundRect(codePill, 4f, 4f, paint)
     paint.color = gold
     canvas.drawRoundRect(RectF(codePill.left, codePill.top, codePill.left + 2.2f, codePill.bottom), 2f, 2f, paint)
-    paint.color = muted
+    paint.color = deepGold
     paint.textSize = trimWidth * 0.022f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.014f, paint)
