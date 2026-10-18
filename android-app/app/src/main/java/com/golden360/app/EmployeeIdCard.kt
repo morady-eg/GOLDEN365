@@ -279,7 +279,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val trim = RectF(trimLeft, trimTop, trimLeft + trimWidth, trimTop + trimHeight)
 
     canvas.drawColor(ivory)
-    // Dark premium face with a restrained metallic-gold frame.
+    // White premium face with a restrained metallic-gold frame.
     paint.color = black
     canvas.drawRoundRect(trim, 4f, 4f, paint)
     paint.color = gold
@@ -344,39 +344,40 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
         canvas.drawText("GOLDEN SHINE", trim.centerX(), photoTop + photoSize * 0.54f, paint)
     }
 
-    // Name and role are deliberately given separate visual hierarchy.
-    val nameY = photoRect.bottom + trimHeight * 0.060f
+    // Name, role and employee number have independent vertical slots to prevent printed overlap.
+    val nameY = photoRect.bottom + trimHeight * 0.055f
     paint.textAlign = Paint.Align.CENTER
-    paint.color = white
+    paint.color = black
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    paint.textSize = trimWidth * 0.057f
+    paint.textSize = trimWidth * 0.052f
     canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
 
     val job = employeeJobTitleEnglish(employee.jobTitle)
     paint.color = lightGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    paint.textSize = trimWidth * 0.040f
-    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 12f), trim.centerX(), nameY + trimHeight * 0.050f, paint)
+    paint.textSize = trimWidth * 0.034f
+    val jobY = nameY + trimHeight * 0.052f
+    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 12f), trim.centerX(), jobY, paint)
 
-    // Employee number panel.
-    val codeY = nameY + trimHeight * 0.112f
-    val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.033f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.018f)
+    // Employee number label and value are placed on separate lines within the pill.
+    val codeY = jobY + trimHeight * 0.075f
+    val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.045f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.025f)
     paint.color = panelLight
     canvas.drawRoundRect(codePill, 4f, 4f, paint)
     paint.color = gold
     canvas.drawRoundRect(RectF(codePill.left, codePill.top, codePill.left + 2.2f, codePill.bottom), 2f, 2f, paint)
     paint.color = muted
-    paint.textSize = trimWidth * 0.026f
+    paint.textSize = trimWidth * 0.022f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.004f, paint)
-    paint.color = white
-    paint.textSize = trimWidth * 0.038f
+    canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.014f, paint)
+    paint.color = black
+    paint.textSize = trimWidth * 0.032f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.030f, paint)
+    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.017f, paint)
 
-    // QR is isolated in a white quiet zone for reliable scanning.
-    val qrSize = trimWidth * 0.18f
-    val qrTop = trim.top + trimHeight * 0.73f
+    // QR is kept comfortably above its caption and away from the footer.
+    val qrSize = trimWidth * 0.17f
+    val qrTop = trim.top + trimHeight * 0.70f
     val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
@@ -385,15 +386,15 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
         qr.recycle()
     }
     paint.color = muted
-    paint.textSize = trimWidth * 0.025f
+    paint.textSize = trimWidth * 0.021f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.023f, paint)
+    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.028f, paint)
 
     // Brand footer and subtle side rail.
     paint.color = gold
     canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f + 0.7f, paint)
     paint.color = lightGold
-    paint.textSize = trimWidth * 0.027f
+    paint.textSize = trimWidth * 0.024f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.019f, paint)
     paint.color = gold
