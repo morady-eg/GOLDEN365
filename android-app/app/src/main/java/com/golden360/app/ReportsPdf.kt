@@ -112,7 +112,7 @@ internal object ReportsPdf {
 
     private fun drawTableHeader(canvas: Canvas, pageWidth: Int, headers: List<String>, widths: List<Float>, top: Float, height: Float) {
         canvas.drawRoundRect(RectF(MARGIN, top, pageWidth - MARGIN, top + height), 5f, 5f, paint(gold))
-        var x = PAGE_WIDTH - MARGIN
+        var x = MARGIN + widths.sum()
         headers.forEachIndexed { index, header ->
             x -= widths[index]
             drawCell(canvas, header, x, top, widths[index], height, paint(white, fontSize(headers.size, true), true), true, maxLines = 3)
@@ -128,7 +128,7 @@ internal object ReportsPdf {
         height: Float,
         isTotal: Boolean
     ) {
-        var x = PAGE_WIDTH - MARGIN
+        var x = MARGIN + widths.sum()
         headers.forEachIndexed { index, _ ->
             val width = widths[index]
             x -= width
