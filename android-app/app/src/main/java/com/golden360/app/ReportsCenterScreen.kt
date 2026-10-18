@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,11 +28,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -106,6 +111,7 @@ internal fun ReportsCenterScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var payload by remember { mutableStateOf<ReportPayload?>(null) }
     var shareAfterSave by remember { mutableStateOf(true) }
+    var monthPickerOpen by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val report = payload
@@ -144,6 +150,29 @@ internal fun ReportsCenterScreen(
             error = failure.message ?: "تعذر تجهيز التقرير"
         } finally {
             loading = false
+        }
+    }
+
+    if (monthPickerOpen) {
+        val initialMonthMillis = runCatching {
+            YearMonth.parse(month).atDay(1).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        }.getOrDefault(System.currentTimeMillis())
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMonthMillis)
+        DatePickerDialog(
+            onDismissRequest = { monthPickerOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        month = Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate().let { YearMonth.from(it).toString() }
+                    }
+                    monthPickerOpen = false
+                }) { Text("اختيار الشهر") }
+            },
+            dismissButton = {
+                TextButton(onClick = { monthPickerOpen = false }) { Text("إلغاء") }
+            }
+        ) {
+            DatePicker(state = pickerState, title = { Text("اختر أي يوم من الشهر المطلوب") })
         }
     }
 
@@ -196,12 +225,17 @@ internal fun ReportsCenterScreen(
                 }
                 OutlinedTextField(
                     value = month,
-                    onValueChange = { month = it },
-                    label = { Text("الشهر (YYYY-MM)") },
-                    placeholder = { Text("2026-10") },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("شهر التقرير") },
+                    placeholder = { Text("اختر الشهر من التقويم") },
+                    trailingIcon = {
+                        IconButton(onClick = { monthPickerOpen = true }) {
+                            Icon(Icons.Default.Assessment, contentDescription = "اختيار شهر التقرير", tint = SoftGold)
+                        }
+                    },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable { monthPickerOpen = true },
                     shape = RoundedCornerShape(12.dp),
                     colors = reportsFieldColors()
                 )
