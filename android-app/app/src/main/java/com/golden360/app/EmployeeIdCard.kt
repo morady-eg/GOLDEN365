@@ -103,7 +103,7 @@ internal fun EmployeeIdCardScreen(
             modifier = Modifier.weight(1f, fill = false)
                 .fillMaxWidth(0.78f)
                 .aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
-            color = Color(0xFF171717),
+            color = Color.White,
             shape = RoundedCornerShape(10.dp),
             shadowElevation = 10.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6B15C))
@@ -138,7 +138,7 @@ internal fun EmployeeIdCardScreen(
                 }
                 Text(
                     employee.fullName.uppercase(java.util.Locale.ROOT),
-                    color = Color.White,
+                    color = Color(0xFF0D0E0F),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -146,7 +146,7 @@ internal fun EmployeeIdCardScreen(
                 )
                 Text(
                     employeeJobTitleEnglish(employee.jobTitle),
-                    color = Color(0xFFE0BE69),
+                    color = Color(0xFF7E5E24),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
@@ -278,9 +278,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val trimTop = (height - trimHeight) / 2f
     val trim = RectF(trimLeft, trimTop, trimLeft + trimWidth, trimTop + trimHeight)
 
-    canvas.drawColor(ivory)
+    canvas.drawColor(white)
     // White premium face with a restrained metallic-gold frame.
-    paint.color = black
+    paint.color = white
     canvas.drawRoundRect(trim, 4f, 4f, paint)
     paint.color = gold
     paint.style = Paint.Style.STROKE
@@ -353,7 +353,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
 
     val job = employeeJobTitleEnglish(employee.jobTitle)
-    paint.color = lightGold
+    paint.color = deepGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.034f
     val jobY = nameY + trimHeight * 0.052f
@@ -385,7 +385,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
         canvas.drawBitmap(qr, null, qrRect, paint)
         qr.recycle()
     }
-    paint.color = muted
+    paint.color = deepGold
     paint.textSize = trimWidth * 0.021f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
     canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.028f, paint)
@@ -393,7 +393,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     // Brand footer and subtle side rail.
     paint.color = gold
     canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f + 0.7f, paint)
-    paint.color = lightGold
+    paint.color = deepGold
     paint.textSize = trimWidth * 0.024f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.019f, paint)
