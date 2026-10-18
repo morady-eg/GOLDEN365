@@ -350,9 +350,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = black
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     paint.textSize = trimWidth * 0.052f
-    canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
+    canvas.drawText(ellipsizeCentered(employee.fullName, paint, trimWidth - 12f), trim.centerX(), nameY, paint)
 
-    val job = employeeJobTitleEnglish(employee.jobTitle)
+    val job = employee.jobTitle
     paint.color = deepGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.034f
