@@ -166,7 +166,7 @@ internal fun EmployeeIdCardScreen(
                 Text("SCAN TO IDENTIFY", color = Color(0xFFC6B78F), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted), fontSize = 12.sp, textAlign = TextAlign.Center)
+        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
         Button(
             onClick = { printEmployeeIds(context, employees) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
