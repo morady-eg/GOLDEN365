@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   signed-release:
+    if: github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v'))
     runs-on: ubuntu-latest
     defaults:
       run:
