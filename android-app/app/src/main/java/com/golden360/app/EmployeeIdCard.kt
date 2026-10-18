@@ -157,17 +157,30 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 1
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFFECE7DB), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("EMPLOYEE NO.  ", color = Color(0xFF6E6552), fontSize = 8.sp)
-                    Text(employee.code, color = Color(0xFF171717), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Column(
+                        modifier = Modifier.weight(1f).background(Color(0xFFECE7DB), RoundedCornerShape(6.dp)).padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("EMPLOYEE NO.", color = Color(0xFF6E6552), fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+                        Text(employee.code, color = Color(0xFF171717), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    Column(
+                        modifier = Modifier.weight(0.9f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        if (qr != null) {
+                            Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(57.dp))
+                        }
+                        Text("SCAN TO IDENTIFY", color = Color(0xFF6E6552), fontSize = 6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, textAlign = TextAlign.Center)
+                    }
                 }
-                if (qr != null) {
-                    Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(61.dp))
-                }
-                Text("SCAN TO IDENTIFY", color = Color(0xFF6E6552), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
         Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
@@ -258,21 +271,32 @@ private fun decodeSampledBitmap(context: Context, uri: Uri, targetWidth: Int, ta
     return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 }
 private fun drawShapedText(canvas: Canvas, text: String, left: Float, baseline: Float, width: Float, paint: TextPaint) {
-    if (text.isBlank()) return
-    val direction = if (text.any { it in '\u0590'..'\u08FF' }) TextDirectionHeuristics.FIRSTSTRONG_RTL
-        else TextDirectionHeuristics.FIRSTSTRONG_LTR
-    val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width.toInt().coerceAtLeast(1))
+    if (text.isBlank() || width <= 1f) return
+    // Fit long names/roles before truncating; measure and draw with the same shaped layout.
+    val originalSize = paint.textSize
+    val minimumSize = maxOf(5f, originalSize * 0.72f)
+    while (paint.textSize > minimumSize && paint.measureText(text) > width - 8f) {
+        paint.textSize = (paint.textSize - 0.35f).coerceAtLeast(minimumSize)
+    }
+    val layout = StaticLayout.Builder.obtain(
+        text, 0, text.length, paint, width.toInt().coerceAtLeast(1)
+    )
         .setAlignment(Layout.Alignment.ALIGN_CENTER)
-        .setTextDirection(direction)
-        .setIncludePad(false)
-        .setLineSpacing(2f, 1f)
+        // FIRSTSTRONG_LTR still follows Arabic-first text, but doesn't force numeric-only strings RTL.
+        .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
+        .setIncludePad(true)
+        .setLineSpacing(0f, 1f)
+        .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
+        .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
         .setMaxLines(1)
         .setEllipsize(android.text.TextUtils.TruncateAt.END)
         .build()
     canvas.save()
-    canvas.translate(left, baseline - layout.height + paint.textSize * 0.25f)
+    canvas.clipRect(left, baseline - paint.textSize - 3f, left + width, baseline + 3f)
+    canvas.translate(left, baseline - layout.height + 2f)
     layout.draw(canvas)
     canvas.restore()
+    paint.textSize = originalSize
 }
 
 private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): String {
@@ -336,7 +360,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText("EMPLOYEE IDENTITY", trim.centerX(), trim.top + trimHeight * 0.135f, paint)
 
     // Employee portrait with a clean gold frame.
-    val photoSize = trimWidth * 0.315f
+    val photoSize = trimWidth * 0.29f
     val photoLeft = trim.centerX() - photoSize / 2f
     val photoTop = trim.top + trimHeight * 0.215f
     val photoRect = RectF(photoLeft, photoTop, photoLeft + photoSize, photoTop + photoSize)
@@ -388,8 +412,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     drawShapedText(canvas, job, trim.left + 6f, jobY, trimWidth - 12f, jobPaint)
 
     // Employee number label and value are placed on separate lines within the pill.
-    val codeY = jobY + trimHeight * 0.075f
-    val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.045f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.025f)
+    val codeY = trim.top + trimHeight * 0.68f
+    // Compact two-column identity strip: employee number on the left, QR on the right.
+    val codePill = RectF(trim.left + trimWidth * 0.08f, codeY - trimHeight * 0.045f, trim.left + trimWidth * 0.61f, codeY + trimHeight * 0.025f)
     paint.color = ivory
     canvas.drawRoundRect(codePill, 4f, 4f, paint)
     paint.color = gold
@@ -397,16 +422,17 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = deepGold
     paint.textSize = trimWidth * 0.022f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.014f, paint)
+    canvas.drawText("EMPLOYEE NO.", codePill.centerX(), codeY - trimHeight * 0.014f, paint)
     paint.color = black
     paint.textSize = trimWidth * 0.032f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.017f, paint)
+    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), codePill.centerX(), codeY + trimHeight * 0.017f, paint)
 
     // QR is kept comfortably above its caption and away from the footer.
-    val qrSize = trimWidth * 0.17f
-    val qrTop = trim.top + trimHeight * 0.70f
-    val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
+    val qrSize = trimWidth * 0.19f
+    val qrTop = trim.top + trimHeight * 0.65f
+    val qrCenterX = trim.left + trimWidth * 0.79f
+    val qrRect = RectF(qrCenterX - qrSize / 2f, qrTop, qrCenterX + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
     createEmployeeQr(employee.code)?.let { qr ->
@@ -416,7 +442,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = deepGold
     paint.textSize = trimWidth * 0.021f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.028f, paint)
+    canvas.drawText("SCAN TO IDENTIFY", qrCenterX, qrRect.bottom + trimHeight * 0.024f, paint)
 
     // Brand footer and subtle side rail.
     paint.color = gold

@@ -71,18 +71,22 @@ internal object PayrollReportPdf {
 
             // Employee information panel
             val infoTop = 150f
-            canvas.drawRoundRect(RectF(margin, infoTop, right, 242f), 9f, 9f, paint(android.graphics.Color.rgb(250, 249, 246)))
+            canvas.drawRoundRect(RectF(margin, infoTop, right, 260f), 9f, 9f, paint(android.graphics.Color.rgb(250, 249, 246)))
             canvas.drawRoundRect(RectF(margin, infoTop, right, infoTop + 4f), 3f, 3f, paint(gold))
             drawRtl(canvas, "بيانات الموظف", right - 14f, infoTop + 24f, 180f, paint(gold, 11f, true))
-            drawRtl(canvas, "اسم الموظف", right - 14f, infoTop + 47f, 175f, small)
-            drawAuto(canvas, snapshot.employeeName, right - 14f, infoTop + 65f, 290f, bold)
-            drawRtl(canvas, "كود الموظف: ${snapshot.employeeCode}", width / 2f - 12f, infoTop + 47f, 190f, small)
-            drawAuto(canvas, "المسمى الوظيفي: ${snapshot.jobTitle}", width / 2f - 12f, infoTop + 70f, 230f, regular)
-            drawRtl(canvas, "الفترة: ${snapshot.monthKey}", right - 14f, infoTop + 83f, 190f, regular)
+            // Two independent columns and four measured baselines: no name/job overlap.
+            drawRtl(canvas, "اسم الموظف", right - 14f, infoTop + 45f, 245f, small)
+            drawAuto(canvas, snapshot.employeeName, right - 14f, infoTop + 64f, 245f, bold)
+            drawRtl(canvas, "المسمى الوظيفي", right - 14f, infoTop + 82f, 245f, small)
+            drawAuto(canvas, snapshot.jobTitle, right - 14f, infoTop + 101f, 245f, regular)
+            drawRtl(canvas, "كود الموظف", width / 2f - 12f, infoTop + 45f, 190f, small)
+            drawAuto(canvas, snapshot.employeeCode, width / 2f - 12f, infoTop + 64f, 190f, regular)
+            drawRtl(canvas, "الفترة", width / 2f - 12f, infoTop + 82f, 190f, small)
+            drawAuto(canvas, snapshot.monthKey, width / 2f - 12f, infoTop + 101f, 190f, regular)
 
             // Earnings and deductions table
-            val tableTop = 262f
-            val tableBottom = 574f
+            val tableTop = 278f
+            val tableBottom = 590f
             canvas.drawRoundRect(RectF(margin, tableTop, right, tableBottom), 9f, 9f, paint(android.graphics.Color.WHITE, 1f, false, line))
             canvas.drawRoundRect(RectF(margin, tableTop, right, tableTop + 36f), 8f, 8f, paint(black))
             canvas.drawRect(margin, tableTop + 26f, right, tableTop + 36f, paint(black))
@@ -120,11 +124,11 @@ internal object PayrollReportPdf {
                 DateTimeFormatter.ofPattern("yyyy/MM/dd - HH:mm", Locale.ROOT)
                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(snapshot.approvedAtEpochMillis))
             }.getOrDefault("—")
-            drawRtl(canvas, "تاريخ الاعتماد: $approvedAt", right - 4f, 666f, 250f, small)
-            drawRtl(canvas, "تم إنشاء هذا الكشف من نظام GOLDEN 360، والقيم المعروضة هي القيم المحفوظة عند الاعتماد.", right - 4f, 687f, width - 2 * margin, small)
+            drawRtl(canvas, "تاريخ الاعتماد: $approvedAt", right - 4f, 690f, 250f, small)
+            drawRtl(canvas, "تم إنشاء هذا الكشف من نظام GOLDEN 360، والقيم المعروضة هي القيم المحفوظة عند الاعتماد.", right - 4f, 711f, width - 2 * margin, small)
 
             // Signature blocks
-            val sigTop = 728f
+            val sigTop = 748f
             val sigPaint = paint(muted, 10f)
             canvas.drawLine(margin + 8f, sigTop, margin + 155f, sigTop, paint(line, 1.2f))
             canvas.drawLine(width / 2f - 65f, sigTop, width / 2f + 65f, sigTop, paint(line, 1.2f))
@@ -263,18 +267,20 @@ internal object PayrollReportPdf {
     }
 
     private fun drawAuto(canvas: Canvas, text: String, right: Float, baseline: Float, maxWidth: Float, paint: TextPaint) {
-        val direction = if (text.any { it in '\u0590'..'\u08FF' }) TextDirectionHeuristics.FIRSTSTRONG_RTL
-            else TextDirectionHeuristics.FIRSTSTRONG_LTR
+        val direction = TextDirectionHeuristics.FIRSTSTRONG_LTR
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, maxWidth.toInt().coerceAtLeast(1))
-            .setAlignment(if (direction == TextDirectionHeuristics.FIRSTSTRONG_RTL) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_NORMAL)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setTextDirection(direction)
-            .setIncludePad(false)
-            .setLineSpacing(2f, 1.0f)
-            .setMaxLines(2)
+            .setIncludePad(true)
+            .setLineSpacing(1f, 1.0f)
+            .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
+            .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
+            .setMaxLines(1)
             .setEllipsize(android.text.TextUtils.TruncateAt.END)
             .build()
         canvas.save()
-        canvas.translate(right - maxWidth, baseline - layout.height + 5f)
+        canvas.clipRect(right - maxWidth, baseline - paint.textSize - 3f, right, baseline + 3f)
+        canvas.translate(right - maxWidth, baseline - layout.height + 2f)
         layout.draw(canvas)
         canvas.restore()
     }

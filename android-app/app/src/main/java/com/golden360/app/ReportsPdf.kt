@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Builds a paginated, print-ready PDF for every report kind. The resulting file is kept in
+ * Builds a paginated, print-first PDF for every report kind. The resulting file is kept in
  * the app cache only and is shared through FileProvider; it is not written to Downloads.
  */
 internal object ReportsPdf {
@@ -39,20 +39,23 @@ internal object ReportsPdf {
             val headers = rows.first()
             val body = rows.drop(1)
             val columnCount = headers.size
-            val availableWidth = PAGE_WIDTH - MARGIN * 2
+            // Wide ledgers use A3 landscape so labels and amounts are not crushed into tiny cells.
+            val pageWidth = if (columnCount >= 9) 1191 else PAGE_WIDTH
+            val pageHeight = if (columnCount >= 9) 842 else PAGE_HEIGHT
+            val availableWidth = pageWidth - MARGIN * 2
             val widths = columnWidths(headers, availableWidth)
-            val headerHeight = if (columnCount >= 12) 52f else 40f
-            val rowHeight = if (columnCount >= 12) 44f else if (columnCount >= 8) 38f else 34f
-            val topOfTable = 132f
-            val footerReserve = 28f
-            val rowsPerPage = (((PAGE_HEIGHT - MARGIN - footerReserve - topOfTable - headerHeight) / rowHeight).toInt()).coerceAtLeast(1)
+            val headerHeight = if (columnCount >= 9) 58f else 44f
+            val rowHeight = if (columnCount >= 9) 56f else if (columnCount >= 6) 46f else 42f
+            val topOfTable = 144f
+            val footerReserve = 34f
+            val rowsPerPage = (((pageHeight - MARGIN - footerReserve - topOfTable - headerHeight) / rowHeight).toInt()).coerceAtLeast(1)
             val chunks = body.chunked(rowsPerPage).ifEmpty { listOf(emptyList()) }
             chunks.forEachIndexed { pageIndex, chunk ->
-                val page = document.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageIndex + 1).create())
+                val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex + 1).create())
                 val canvas = page.canvas
                 canvas.drawColor(white)
-                drawHeader(canvas, title, month, employeeScope, pageIndex + 1, chunks.size)
-                drawTableHeader(canvas, headers, widths, topOfTable, headerHeight)
+                drawHeader(canvas, pageWidth, title, month, employeeScope)
+                drawTableHeader(canvas, pageWidth, headers, widths, topOfTable, headerHeight)
                 var y = topOfTable + headerHeight
                 chunk.forEachIndexed { index, row ->
                     val isTotal = row.firstOrNull()?.contains("الإجمالي") == true ||
@@ -62,12 +65,12 @@ internal object ReportsPdf {
                         index % 2 == 0 -> android.graphics.Color.rgb(249, 248, 245)
                         else -> white
                     }
-                    canvas.drawRect(MARGIN, y, PAGE_WIDTH - MARGIN, y + rowHeight, paint(rowColor))
-                    canvas.drawLine(MARGIN, y + rowHeight, PAGE_WIDTH - MARGIN, y + rowHeight, paint(line, 0.8f))
+                    canvas.drawRect(MARGIN, y, pageWidth - MARGIN, y + rowHeight, paint(rowColor))
+                    canvas.drawLine(MARGIN, y + rowHeight, pageWidth - MARGIN, y + rowHeight, paint(line, 0.8f))
                     drawRow(canvas, headers, row, widths, y, rowHeight, isTotal)
                     y += rowHeight
                 }
-                drawFooter(canvas, pageIndex + 1, chunks.size)
+                drawFooter(canvas, pageWidth, pageHeight, pageIndex + 1, chunks.size)
                 document.finishPage(page)
             }
             FileOutputStream(file).use { document.writeTo(it) }
@@ -93,26 +96,23 @@ internal object ReportsPdf {
 
     private fun drawHeader(
         canvas: Canvas,
+        pageWidth: Int,
         title: String,
         month: String,
-        employeeScope: String,
-        page: Int,
-        pages: Int
+        employeeScope: String
     ) {
-        canvas.drawRect(0f, 0f, PAGE_WIDTH.toFloat(), 104f, paint(black))
-        canvas.drawRect(0f, 98f, PAGE_WIDTH.toFloat(), 104f, paint(gold))
-        centered(canvas, "GOLDEN 360", PAGE_WIDTH / 2f, 28f, paint(white, 17f, true))
-        centered(canvas, title, PAGE_WIDTH / 2f, 52f, paint(android.graphics.Color.rgb(239, 211, 143), 12f, true))
-        centered(canvas, "الفترة: $month    •    النطاق: $employeeScope", PAGE_WIDTH / 2f, 73f, paint(white, 9f))
-        centered(canvas, "تاريخ الإصدار: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm", Locale.ROOT)),
-            PAGE_WIDTH / 2f, 91f, paint(android.graphics.Color.rgb(220, 220, 220), 8f))
-        val pageLabel = "صفحة $page من $pages"
-        centered(canvas, pageLabel, PAGE_WIDTH / 2f, PAGE_HEIGHT - 8f, paint(muted, 7.5f))
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 112f, paint(black))
+        canvas.drawRect(0f, 106f, pageWidth.toFloat(), 112f, paint(gold))
+        centered(canvas, "GOLDEN 360", pageWidth / 2f, 30f, paint(white, 20f, true))
+        centered(canvas, title, pageWidth / 2f, 56f, paint(android.graphics.Color.rgb(239, 211, 143), 14f, true))
+        centered(canvas, "الفترة: $month    •    النطاق: $employeeScope", pageWidth / 2f, 81f, paint(white, 10f))
+        centered(canvas, "تاريخ الإصدار: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd  hh:mm a", Locale.ROOT)),
+            pageWidth / 2f, 99f, paint(android.graphics.Color.rgb(220, 220, 220), 9f))
     }
 
-    private fun drawTableHeader(canvas: Canvas, headers: List<String>, widths: List<Float>, top: Float, height: Float) {
-        canvas.drawRoundRect(RectF(MARGIN, top, PAGE_WIDTH - MARGIN, top + height), 5f, 5f, paint(gold))
-        var x = PAGE_WIDTH - MARGIN
+    private fun drawTableHeader(canvas: Canvas, pageWidth: Int, headers: List<String>, widths: List<Float>, top: Float, height: Float) {
+        canvas.drawRoundRect(RectF(MARGIN, top, pageWidth - MARGIN, top + height), 5f, 5f, paint(gold))
+        var x = MARGIN + widths.sum()
         headers.forEachIndexed { index, header ->
             x -= widths[index]
             drawCell(canvas, header, x, top, widths[index], height, paint(white, fontSize(headers.size, true), true), true, maxLines = 3)
@@ -128,7 +128,7 @@ internal object ReportsPdf {
         height: Float,
         isTotal: Boolean
     ) {
-        var x = PAGE_WIDTH - MARGIN
+        var x = MARGIN + widths.sum()
         headers.forEachIndexed { index, _ ->
             val width = widths[index]
             x -= width
@@ -173,19 +173,19 @@ internal object ReportsPdf {
         canvas.restore()
     }
 
-    private fun drawFooter(canvas: Canvas, page: Int, pages: Int) {
-        canvas.drawLine(MARGIN, PAGE_HEIGHT - 20f, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 20f, paint(gold, 0.8f))
-        val footer = "GOLDEN 360 • تقرير صادر من بيانات التطبيق • $page / $pages"
-        centered(canvas, footer, PAGE_WIDTH / 2f, PAGE_HEIGHT - 8f, paint(muted, 7.5f))
+    private fun drawFooter(canvas: Canvas, pageWidth: Int, pageHeight: Int, page: Int, pages: Int) {
+        canvas.drawLine(MARGIN, pageHeight - 24f, pageWidth - MARGIN, pageHeight - 24f, paint(gold, 0.8f))
+        val footer = "GOLDEN 360 • تقرير صادر من بيانات التطبيق • صفحة $page من $pages"
+        centered(canvas, footer, pageWidth / 2f, pageHeight - 9f, paint(muted, 9f))
     }
 
     private fun isRtl(value: String): Boolean = value.any { it in '\u0590'..'\u08FF' }
 
     private fun fontSize(columnCount: Int, header: Boolean): Float = when {
-        columnCount >= 13 -> if (header) 6.2f else 5.8f
-        columnCount >= 10 -> if (header) 7f else 6.5f
-        columnCount >= 8 -> if (header) 8f else 7.5f
-        else -> if (header) 9.5f else 9f
+        columnCount >= 13 -> if (header) 9.5f else 8.5f
+        columnCount >= 10 -> if (header) 10f else 9f
+        columnCount >= 8 -> if (header) 10.5f else 9.5f
+        else -> if (header) 11f else 10f
     }
 
     private fun centered(canvas: Canvas, text: String, x: Float, y: Float, textPaint: Paint) {
