@@ -91,19 +91,19 @@ internal fun EmployeeIdCardScreen(
     }.value
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFF7F4EC)).padding(18.dp),
+        modifier = Modifier.fillMaxSize().background(Black).padding(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Color(0xFFB28A36))
-            Text(if (employees.size == 1) "EMPLOYEE ID CARD" else "PREVIEW ${employees.size} EMPLOYEE ID CARDS", color = Color(0xFFB28A36), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
+            Text(if (employees.size == 1) "EMPLOYEE ID CARD" else "PREVIEW ${employees.size} EMPLOYEE ID CARDS", color = SoftGold, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         Surface(
             modifier = Modifier.weight(1f, fill = false)
                 .fillMaxWidth(0.78f)
                 .aspectRatio(EmployeeIdCardSpec.WIDTH_MM.toFloat() / EmployeeIdCardSpec.HEIGHT_MM.toFloat()),
-            color = Color.White,
+            color = Color(0xFF171717),
             shape = RoundedCornerShape(10.dp),
             shadowElevation = 10.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6B15C))
@@ -114,12 +114,12 @@ internal fun EmployeeIdCardScreen(
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF9E9), RoundedCornerShape(5.dp)).padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF090909), RoundedCornerShape(5.dp)).padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("GOLDEN SHINE", color = Color(0xFFB28A36), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
-                        Text("EMPLOYEE IDENTITY", color = Color(0xFF536273), fontSize = 7.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.3.sp)
+                        Text("GOLDEN SHINE", color = Color(0xFFE0BE69), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
+                        Text("EMPLOYEE IDENTITY", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.3.sp)
                     }
                 }
                 Box(
@@ -138,7 +138,7 @@ internal fun EmployeeIdCardScreen(
                 }
                 Text(
                     employee.fullName.uppercase(java.util.Locale.ROOT),
-                    color = Color(0xFF334155),
+                    color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -146,32 +146,32 @@ internal fun EmployeeIdCardScreen(
                 )
                 Text(
                     employeeJobTitleEnglish(employee.jobTitle),
-                    color = Color(0xFFB28A36),
+                    color = Color(0xFFE0BE69),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF4D6), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF29251C), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("EMPLOYEE NO.  ", color = Color(0xFF8B6B2B), fontSize = 8.sp)
-                    Text(employee.code, color = Color(0xFF334155), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("EMPLOYEE NO.  ", color = Color(0xFFC6B78F), fontSize = 8.sp)
+                    Text(employee.code, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
                 if (qr != null) {
                     Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(61.dp))
                 }
-                Text("SCAN TO IDENTIFY", color = Color(0xFF8B6B2B), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("SCAN TO IDENTIFY", color = Color(0xFFC6B78F), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Color(0xFF64748B), fontSize = 12.sp, textAlign = TextAlign.Center)
+        Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted), fontSize = 12.sp, textAlign = TextAlign.Center)
         Button(
             onClick = { printEmployeeIds(context, employees) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF334155))
+            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
         ) {
             Icon(Icons.Default.Print, contentDescription = null)
             Text(if (employees.size == 1) "PRINT EMPLOYEE ID" else "PRINT ${employees.size} EMPLOYEE IDS", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
@@ -198,7 +198,7 @@ private fun createEmployeeQr(code: String): Bitmap? = runCatching {
     Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).also { bitmap ->
         for (y in 0 until matrix.height) {
             for (x in 0 until matrix.width) {
-                bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.rgb(51, 65, 85) else android.graphics.Color.WHITE)
+                bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
             }
         }
     }
@@ -263,12 +263,12 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val gold = android.graphics.Color.rgb(214, 177, 92)
     val lightGold = android.graphics.Color.rgb(241, 216, 143)
     val deepGold = android.graphics.Color.rgb(126, 94, 36)
-    val black = android.graphics.Color.rgb(51, 65, 85) // Slate ink, not black.
-    val panel = android.graphics.Color.rgb(255, 249, 233)
-    val panelLight = android.graphics.Color.rgb(255, 244, 214)
-    val ivory = android.graphics.Color.WHITE
-    val white = android.graphics.Color.rgb(51, 65, 85)
-    val muted = android.graphics.Color.rgb(139, 107, 43)
+    val black = android.graphics.Color.rgb(13, 14, 15)
+    val panel = android.graphics.Color.rgb(28, 29, 30)
+    val panelLight = android.graphics.Color.rgb(43, 40, 33)
+    val ivory = android.graphics.Color.rgb(245, 242, 234)
+    val white = android.graphics.Color.WHITE
+    val muted = android.graphics.Color.rgb(190, 184, 168)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
     // Artwork includes bleed; all critical content stays inside the 54 x 86 mm trim.
@@ -278,9 +278,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val trimTop = (height - trimHeight) / 2f
     val trim = RectF(trimLeft, trimTop, trimLeft + trimWidth, trimTop + trimHeight)
 
-    canvas.drawColor(android.graphics.Color.WHITE)
+    canvas.drawColor(ivory)
     // White premium face with a restrained metallic-gold frame.
-    paint.color = android.graphics.Color.WHITE
+    paint.color = black
     canvas.drawRoundRect(trim, 4f, 4f, paint)
     paint.color = gold
     paint.style = Paint.Style.STROKE
@@ -301,14 +301,14 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
         lineTo(trim.right, trim.top + trimHeight * 0.15f)
         close()
     }
-    paint.color = android.graphics.Color.rgb(255, 244, 214)
+    paint.color = android.graphics.Color.rgb(65, 52, 28)
     canvas.drawPath(accent, paint)
-    paint.color = android.graphics.Color.rgb(178, 138, 54)
+    paint.color = lightGold
     paint.textAlign = Paint.Align.CENTER
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     paint.textSize = trimWidth * 0.073f
     canvas.drawText(EmployeeIdCardSpec.COMPANY_NAME, trim.centerX(), trim.top + trimHeight * 0.082f, paint)
-    paint.color = black
+    paint.color = white
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.029f
     canvas.drawText("EMPLOYEE IDENTITY", trim.centerX(), trim.top + trimHeight * 0.135f, paint)
@@ -353,7 +353,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
 
     val job = employeeJobTitleEnglish(employee.jobTitle)
-    paint.color = android.graphics.Color.rgb(178, 138, 54)
+    paint.color = lightGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.034f
     val jobY = nameY + trimHeight * 0.052f
@@ -393,7 +393,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     // Brand footer and subtle side rail.
     paint.color = gold
     canvas.drawRect(trim.left + trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f, trim.right - trimWidth * 0.13f, trim.bottom - trimHeight * 0.048f + 0.7f, paint)
-    paint.color = android.graphics.Color.rgb(178, 138, 54)
+    paint.color = lightGold
     paint.textSize = trimWidth * 0.024f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     canvas.drawText("GOLDEN SHINE  •  OFFICIAL STAFF", trim.centerX(), trim.bottom - trimHeight * 0.019f, paint)
