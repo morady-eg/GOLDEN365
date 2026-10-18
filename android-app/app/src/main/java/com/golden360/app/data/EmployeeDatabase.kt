@@ -23,7 +23,7 @@ data class EmployeeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val code: String,
     val fullName: String,
-    @ColumnInfo(defaultValue = "") val phone: String = "",
+    @ColumnInfo(defaultValue = "''") val phone: String = "",
     @ColumnInfo(defaultValue = "'08:00'") val shiftStartTime: String = "08:00",
     @ColumnInfo(defaultValue = "''") val weeklyOffDays: String = "",
     val jobTitle: String,
