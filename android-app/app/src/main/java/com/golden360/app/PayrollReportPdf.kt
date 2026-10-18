@@ -36,7 +36,7 @@ internal val MONTHLY_PAYROLL_HEADERS = listOf(
 )
 
 internal fun monthlyPayrollEmployeeLabel(employee: PayrollReportEmployee): String =
-    monthlyPayrollEmployeeLabel(employee)
+    "${employee.name}\n${employee.code}"
 
 internal object PayrollReportPdf {
     private val black = android.graphics.Color.rgb(28, 28, 28)
@@ -178,7 +178,7 @@ internal object PayrollReportPdf {
                     canvas.drawRect(margin, y, width - margin, y + rowHeight, rowPaint)
                     canvas.drawLine(margin, y + rowHeight, width - margin, y + rowHeight, paint(line, 0.8f))
                     val values = listOf(
-                        "${employee.name}\n${employee.code}",
+                        monthlyPayrollEmployeeLabel(employee),
                         money(employee.baseSalary),
                         money(employee.overtime),
                         money(employee.bonuses),
