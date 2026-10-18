@@ -3,6 +3,8 @@ package com.golden360.app.data
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import org.junit.Test
 
 class BackupCryptoTest {
@@ -11,6 +13,31 @@ class BackupCryptoTest {
         val source = "GOLDEN360 test database payload".toByteArray()
         val encrypted = BackupCrypto.encrypt(source, "CorrectHorseBatteryStaple!".toCharArray())
         assertArrayEquals(source, BackupCrypto.decrypt(encrypted, "CorrectHorseBatteryStaple!".toCharArray()))
+    }
+
+    @Test
+    fun streamingBackupEncryptionRoundTripsLargePayload() {
+        val source = ByteArray(512 * 1024) { (it % 251).toByte() }
+        val password = "CorrectHorseBatteryStaple!".toCharArray()
+        val encrypted = ByteArrayOutputStream().also { output ->
+            BackupCrypto.encrypt(ByteArrayInputStream(source), output, password)
+        }.toByteArray()
+        val restored = ByteArrayOutputStream().also { output ->
+            BackupCrypto.decrypt(ByteArrayInputStream(encrypted), output, password)
+        }.toByteArray()
+        assertArrayEquals(source, restored)
+    }
+
+    @Test
+    fun streamingBackupDecryptionRejectsTamperedCiphertext() {
+        val password = "CorrectHorseBatteryStaple!".toCharArray()
+        val encrypted = ByteArrayOutputStream().also { output ->
+            BackupCrypto.encrypt(ByteArrayInputStream("private data".toByteArray()), output, password)
+        }.toByteArray()
+        encrypted[encrypted.lastIndex] = (encrypted.last().toInt() xor 1).toByte()
+        assertThrows(SecurityException::class.java) {
+            BackupCrypto.decrypt(ByteArrayInputStream(encrypted), ByteArrayOutputStream(), password)
+        }
     }
 
     @Test
