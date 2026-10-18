@@ -1,8 +1,6 @@
 package com.golden360.app
 
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import java.io.File
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.BorderStroke
@@ -494,16 +492,6 @@ private fun effectiveDatedAbsenceDates(
     statusEffectiveDate = employee.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
     suspensionPeriods = employee.suspensionPeriods
 )
-
-private fun shareCsvFile(context: Context, uri: Uri) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/csv"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        clipData = ClipData.newUri(context.contentResolver, "GOLDEN 360 CSV report", uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, "مشاركة تقرير GOLDEN 360"))
-}
 
 @Composable
 private fun reportsFieldColors() = OutlinedTextFieldDefaults.colors(
