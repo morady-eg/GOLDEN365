@@ -111,7 +111,8 @@ interface EmployeeDao {
     @Query("SELECT * FROM employee_code_counter WHERE `key` = 1 LIMIT 1")
     suspend fun getCounter(): EmployeeCodeCounter?
 
-    @Query("SELECT MAX(CAST(SUBSTR(code, 4) AS INTEGER)) FROM employees")
+    // Supports both legacy GS_000001 codes and the current GS001 format.
+    @Query("SELECT MAX(CASE WHEN code GLOB 'GS_[0-9]*' THEN CAST(SUBSTR(code, 4) AS INTEGER) WHEN code GLOB 'GS[0-9]*' THEN CAST(SUBSTR(code, 3) AS INTEGER) ELSE 0 END) FROM employees")
     suspend fun highestExistingSequence(): Long?
 
     @Transaction
