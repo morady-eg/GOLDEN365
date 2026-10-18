@@ -157,17 +157,30 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 1
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFFECE7DB), RoundedCornerShape(5.dp)).padding(vertical = 5.dp, horizontal = 7.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("EMPLOYEE NO.  ", color = Color(0xFF6E6552), fontSize = 8.sp)
-                    Text(employee.code, color = Color(0xFF171717), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Column(
+                        modifier = Modifier.weight(1f).background(Color(0xFFECE7DB), RoundedCornerShape(6.dp)).padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("EMPLOYEE NO.", color = Color(0xFF6E6552), fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+                        Text(employee.code, color = Color(0xFF171717), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    Column(
+                        modifier = Modifier.weight(0.9f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        if (qr != null) {
+                            Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(57.dp))
+                        }
+                        Text("SCAN TO IDENTIFY", color = Color(0xFF6E6552), fontSize = 6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp, textAlign = TextAlign.Center)
+                    }
                 }
-                if (qr != null) {
-                    Image(qr.asImageBitmap(), contentDescription = "EMPLOYEE QR CODE", modifier = Modifier.size(61.dp))
-                }
-                Text("SCAN TO IDENTIFY", color = Color(0xFF6E6552), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
         Text("CARD SIZE: 54 × 86 MM • 300 DPI", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
