@@ -15,6 +15,13 @@ class DisplayDateTimeTest {
     }
 
     @Test
+    fun shiftStartDisplayUsesArabicTwelveHourMarkers() {
+        assertEquals("12:05 ص", formatShiftTimeForDisplay("00:05"))
+        assertEquals("12:00 م", formatShiftTimeForDisplay("12:00"))
+        assertEquals("01:07 م", formatShiftTimeForDisplay("13:07"))
+    }
+
+    @Test
     fun approvalAndTransactionTimestampsUseTwelveHourClock() {
         val zone = ZoneId.of("UTC")
         val instant = Instant.parse("2026-10-18T13:07:00Z").toEpochMilli()
