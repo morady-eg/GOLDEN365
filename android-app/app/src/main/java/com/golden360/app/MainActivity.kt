@@ -1151,6 +1151,14 @@ private fun GoldenDateField(
     }
 }
 
+internal fun formatShiftTimeForDisplay(value: String): String {
+    val time = runCatching { java.time.LocalTime.parse(value) }
+        .getOrDefault(java.time.LocalTime.of(8, 0))
+    val hour12 = when (val hour = time.hour % 12) { 0 -> 12; else -> hour }
+    return String.format(java.util.Locale.ROOT, "%02d:%02d", hour12, time.minute) +
+        if (time.hour < 12) " ص" else " م"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoldenTimeField(
@@ -1163,11 +1171,7 @@ private fun GoldenTimeField(
     val parsedTime = remember(value) {
         runCatching { java.time.LocalTime.parse(value) }.getOrDefault(java.time.LocalTime.of(8, 0))
     }
-    val displayTime = remember(parsedTime) {
-        val hour12 = when (val hour = parsedTime.hour % 12) { 0 -> 12; else -> hour }
-        String.format(java.util.Locale.ROOT, "%02d:%02d", hour12, parsedTime.minute) +
-            if (parsedTime.hour < 12) " ص" else " م"
-    }
+    val displayTime = remember(value) { formatShiftTimeForDisplay(value) }
     OutlinedTextField(
         value = displayTime,
         onValueChange = {},
