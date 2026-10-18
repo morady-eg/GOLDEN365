@@ -138,34 +138,34 @@ internal fun ExecutiveDashboardScreen(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFFFFFCF6),
+            color = Color(0xFF171511),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, Color(0xFFE5D5B0))
+            border = BorderStroke(1.dp, Color(0xFF6B5428))
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("GOLDEN SHINE MARBLE", color = Color(0xFF9A7628), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                        Text("لوحة الإدارة", color = Color(0xFF334155), fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
-                        Text("نظرة تنفيذية على الموظفين والرواتب", color = Color(0xFF64748B), fontSize = 12.sp)
+                        Text("GOLDEN SHINE MARBLE", color = SoftGold, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        Text("لوحة الإدارة", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("نظرة تنفيذية على الموظفين والرواتب", color = Muted, fontSize = 12.sp)
                     }
                     Box(
-                        Modifier.size(58.dp).background(Color(0xFFFFF1CC), RoundedCornerShape(18.dp)),
+                        Modifier.size(58.dp).background(Color(0xFF342919), RoundedCornerShape(18.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = SoftGold, modifier = Modifier.size(30.dp))
                     }
                 }
-                HorizontalDivider(color = Color(0xFFE8DDBF))
+                HorizontalDivider(color = Color(0xFF514020))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("الفترة المالية", color = Color(0xFF64748B), fontSize = 11.sp)
-                        Text(monthLabel, color = Color(0xFF9A7628), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("الفترة المالية", color = Muted, fontSize = 11.sp)
+                        Text(monthLabel, color = SoftGold, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     }
-                    Surface(color = Color(0xFFFFF4D6), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFFD6B15C))) {
+                    Surface(color = Color(0xFF302718), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF72592A))) {
                         Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.size(7.dp).background(Color(0xFF8FC69A), CircleShape))
-                            Text("بيانات على الجهاز", color = Color(0xFF9A7628), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("بيانات على الجهاز", color = SoftGold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -174,10 +174,10 @@ internal fun ExecutiveDashboardScreen(
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("ملخص الشهر", color = Color(0xFF334155), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                Text("أرقام محسوبة من السجلات الحالية", color = Color(0xFF64748B), fontSize = 12.sp)
+                Text("ملخص الشهر", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text("أرقام محسوبة من السجلات الحالية", color = Muted, fontSize = 12.sp)
             }
-            TextButton(onClick = onPayroll) { Text("تفاصيل الرواتب", color = Color(0xFF9A7628)) }
+            TextButton(onClick = onPayroll) { Text("تفاصيل الرواتب", color = SoftGold) }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -186,14 +186,14 @@ internal fun ExecutiveDashboardScreen(
         }
         Surface(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onPayroll),
-            color = Color(0xFFFFF4D6),
+            color = Color(0xFF211B10),
             shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, Color(0xFFD6B15C))
+            border = BorderStroke(1.dp, Color(0xFF80652F))
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("صافي رواتب الشهر", color = Color(0xFF64748B), fontSize = 12.sp)
-                Text(if (summaryLoading || summaryError) "—" else dashboardMoney(summary.payroll.netSalaryPiasters), color = Color(0xFF9A7628), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                Text(if (summaryError) "تعذر تحميل الملخص؛ افتح الرواتب وأعد المحاولة" else "اضغط لعرض الكشف التفصيلي وحالة الاعتماد", color = Color(0xFF64748B), fontSize = 11.sp)
+                Text("صافي رواتب الشهر", color = Muted, fontSize = 12.sp)
+                Text(if (summaryLoading || summaryError) "—" else dashboardMoney(summary.payroll.netSalaryPiasters), color = SoftGold, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                Text(if (summaryError) "تعذر تحميل الملخص؛ افتح الرواتب وأعد المحاولة" else "اضغط لعرض الكشف التفصيلي وحالة الاعتماد", color = Muted, fontSize = 11.sp)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -201,12 +201,12 @@ internal fun ExecutiveDashboardScreen(
             DashboardMetric("تحتاج مراجعة", if (summaryLoading || summaryError) "—" else summary.employeesNeedingReview.toString(), "صافي سالب", Icons.Default.Gavel, Modifier.weight(1f))
         }
 
-        Text("إجراءات سريعة", color = Color(0xFF334155), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("إجراءات سريعة", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         DashboardAction("إدارة الموظفين", "إضافة ملفات الموظفين وتحديث بياناتهم", Icons.Default.People, onEmployees)
         DashboardAction("مراجعة واعتماد الرواتب", "الكشف الشهري والتقارير وحالة الاعتماد", Icons.Default.ReceiptLong, onPayroll)
         DashboardAction("الحضور والغياب", "مراجعة تسجيل الغياب حسب الورديات", Icons.Default.AccessTime, onAttendance)
 
-        Text("تسجيل حركة مالية", color = Color(0xFF334155), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("تسجيل حركة مالية", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DashboardAction("سلفة", "إضافة سلفة", Icons.Default.Payments, { onOpenTransaction(TransactionType.ADVANCE) }, Modifier.weight(1f))
             DashboardAction("مكافأة", "إضافة مكافأة", Icons.Default.Redeem, { onOpenTransaction(TransactionType.BONUS) }, Modifier.weight(1f))
@@ -229,7 +229,7 @@ internal fun ExecutiveDashboardScreen(
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("تعذر تحديث ملخص الشهر", color = Color(0xFFFFB3A8), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("لم نعرض أرقامًا تقديرية. يمكنك إعادة المحاولة دون مغادرة الصفحة.", color = Color(0xFF64748B), fontSize = 12.sp)
+                    Text("لم نعرض أرقامًا تقديرية. يمكنك إعادة المحاولة دون مغادرة الصفحة.", color = Muted, fontSize = 12.sp)
                     OutlinedButton(
                         onClick = { refreshToken++ },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -246,12 +246,12 @@ internal fun ExecutiveDashboardScreen(
 
 @Composable
 private fun DashboardMetric(title: String, value: String, subtitle: String, icon: ImageVector, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Color(0xFFE8DDBF))) {
+    Surface(modifier = modifier, color = Panel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Color(0xFF40351F))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, contentDescription = null, tint = SoftGold, modifier = Modifier.size(23.dp))
-            Text(title, color = Color(0xFF64748B), fontSize = 11.sp)
-            Text(value, color = Color(0xFF9A7628), fontSize = if (value.length > 12) 13.sp else 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-            Text(subtitle, color = Color(0xFF64748B), fontSize = 10.sp, maxLines = 1)
+            Text(title, color = Muted, fontSize = 11.sp)
+            Text(value, color = SoftGold, fontSize = if (value.length > 12) 13.sp else 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Text(subtitle, color = Muted, fontSize = 10.sp, maxLines = 1)
         }
     }
 }
@@ -264,14 +264,14 @@ private fun DashboardAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(modifier = modifier.fillMaxWidth().clickable(onClick = onClick), color = Color(0xFFFFFFFF), shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, Color(0xFFE8DDBF))) {
+    Surface(modifier = modifier.fillMaxWidth().clickable(onClick = onClick), color = Color(0xFF1A1711), shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, Color(0xFF514020))) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(42.dp).background(Color(0xFFFFF1CC), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(42.dp).background(Color(0xFF342919), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = SoftGold)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color(0xFF334155), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(subtitle, color = Color(0xFF64748B), fontSize = 10.sp)
+                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(subtitle, color = Muted, fontSize = 10.sp)
             }
             Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Gold)
         }
