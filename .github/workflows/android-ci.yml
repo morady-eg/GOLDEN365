@@ -28,9 +28,9 @@ jobs:
         working-directory: android-app
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -43,7 +43,7 @@ jobs:
         run: ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
       - name: Upload unit test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: GOLDEN-360-unit-test-reports
           path: android-app/app/build/reports/tests/testDebugUnitTest/
@@ -51,7 +51,7 @@ jobs:
           retention-days: 14
       - name: Upload installable debug APK
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: GOLDEN-360-debug-apk
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload unsigned release APK for QA only
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: GOLDEN-360-release-unsigned-QA-only
           path: android-app/app/build/outputs/apk/release/app-release-unsigned.apk

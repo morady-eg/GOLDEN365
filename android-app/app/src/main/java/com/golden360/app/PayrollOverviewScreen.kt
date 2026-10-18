@@ -114,7 +114,7 @@ internal fun PayrollOverviewScreen(
                             summary.netSalaryPiasters
                         )
                     }
-                    MonthlyPayrollRow(employee, absentDays, result, saved != null)
+                    MonthlyPayrollRow(employee, payrollAbsenceDaysForDisplay(saved?.absentDays, absentDays), result, saved != null)
                 }
             }
         } catch (failure: Exception) {

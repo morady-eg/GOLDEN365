@@ -20,3 +20,7 @@ data class PayrollOverviewTotals(
         netSalaryPiasters = Math.addExact(netSalaryPiasters, other.netSalaryPiasters)
     )
 }
+
+/** Prefer the immutable snapshot's absence count after approval; otherwise use the live calculation. */
+internal fun payrollAbsenceDaysForDisplay(snapshotAbsentDays: Int?, calculatedAbsentDays: Int): Int =
+    snapshotAbsentDays ?: calculatedAbsentDays

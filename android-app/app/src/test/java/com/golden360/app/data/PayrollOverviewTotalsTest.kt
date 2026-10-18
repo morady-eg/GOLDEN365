@@ -16,4 +16,12 @@ class PayrollOverviewTotalsTest {
     @Test fun emptyMonthTotalsAreZero() {
         assertEquals(PayrollOverviewTotals(), PayrollOverviewTotals() + PayrollOverviewTotals())
     }
+
+    @Test fun approvedPayrollDisplaysTheAbsenceDaysSavedInItsImmutableSnapshot() {
+        assertEquals(4, payrollAbsenceDaysForDisplay(snapshotAbsentDays = 4, calculatedAbsentDays = 1))
+    }
+
+    @Test fun unapprovedPayrollDisplaysTheCurrentlyCalculatedAbsenceDays() {
+        assertEquals(3, payrollAbsenceDaysForDisplay(snapshotAbsentDays = null, calculatedAbsentDays = 3))
+    }
 }
