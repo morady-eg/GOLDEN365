@@ -170,7 +170,7 @@ internal object PayrollReportPdf {
                     canvas.drawRect(margin, y, width - margin, y + rowHeight, rowPaint)
                     canvas.drawLine(margin, y + rowHeight, width - margin, y + rowHeight, paint(line, 0.8f))
                     val values = listOf(
-                        "${employee.name}\n${employee.code} • ${employee.jobTitle}",
+                        "${employee.name}\n${employee.code}",
                         money(employee.baseSalary),
                         money(employee.overtime),
                         money(employee.bonuses),
