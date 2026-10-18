@@ -10,6 +10,13 @@
 - The `golden1.png` asset is present at `android-app/app/src/main/res/drawable-nodpi/golden1.png` and is referenced by the app's main header. This corrects an outdated statement in the manual checklist below.
 - Automated builds are not proof of successful physical-device testing or a production-ready signed release.
 
+## Follow-up fixes under validation
+
+- The follow-up branch `fix/pre-release-backup-memory-and-qa` corrects the outdated `golden1.png` checklist statement.
+- Backup archive creation now streams database files into a temporary ZIP and streams encryption to a temporary file; restore streams decryption and ZIP entries to staging files instead of retaining all database/archive copies in heap memory.
+- Streaming encryption/decryption has unit tests for large-payload round-trip and tampered ciphertext rejection.
+- These changes are not approved for `main` until the new CI run passes and the pull request is reviewed. Device-level backup/restore validation remains required.
+
 ## Previously observed build issue
 
 Run [39077382300](https://github.com/morady-eg/GOLDEN365/actions/runs/39077382300) failed on an unresolved `calculate` reference in payroll validation. That historical issue was corrected in a subsequent commit. Always verify the latest commit's CI before publishing.
