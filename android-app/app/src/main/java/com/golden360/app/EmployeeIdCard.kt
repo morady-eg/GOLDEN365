@@ -399,8 +399,9 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     drawShapedText(canvas, job, trim.left + 6f, jobY, trimWidth - 12f, jobPaint)
 
     // Employee number label and value are placed on separate lines within the pill.
-    val codeY = jobY + trimHeight * 0.075f
-    val codePill = RectF(trim.left + trimWidth * 0.12f, codeY - trimHeight * 0.045f, trim.right - trimWidth * 0.12f, codeY + trimHeight * 0.025f)
+    val codeY = trim.top + trimHeight * 0.68f
+    // Compact two-column identity strip: employee number on the left, QR on the right.
+    val codePill = RectF(trim.left + trimWidth * 0.08f, codeY - trimHeight * 0.045f, trim.left + trimWidth * 0.61f, codeY + trimHeight * 0.025f)
     paint.color = ivory
     canvas.drawRoundRect(codePill, 4f, 4f, paint)
     paint.color = gold
@@ -408,16 +409,17 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = deepGold
     paint.textSize = trimWidth * 0.022f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText("EMPLOYEE NO.", trim.centerX(), codeY - trimHeight * 0.014f, paint)
+    canvas.drawText("EMPLOYEE NO.", codePill.centerX(), codeY - trimHeight * 0.014f, paint)
     paint.color = black
     paint.textSize = trimWidth * 0.032f
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.017f, paint)
+    canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), codePill.centerX(), codeY + trimHeight * 0.017f, paint)
 
     // QR is kept comfortably above its caption and away from the footer.
     val qrSize = trimWidth * 0.19f
-    val qrTop = trim.top + trimHeight * 0.69f
-    val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
+    val qrTop = trim.top + trimHeight * 0.65f
+    val qrCenterX = trim.left + trimWidth * 0.79f
+    val qrRect = RectF(qrCenterX - qrSize / 2f, qrTop, qrCenterX + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
     createEmployeeQr(employee.code)?.let { qr ->
@@ -427,7 +429,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = deepGold
     paint.textSize = trimWidth * 0.021f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.024f, paint)
+    canvas.drawText("SCAN TO IDENTIFY", qrCenterX, qrRect.bottom + trimHeight * 0.024f, paint)
 
     // Brand footer and subtle side rail.
     paint.color = gold
