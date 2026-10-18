@@ -75,9 +75,9 @@ internal object PayrollReportPdf {
             canvas.drawRoundRect(RectF(margin, infoTop, right, infoTop + 4f), 3f, 3f, paint(gold))
             drawRtl(canvas, "بيانات الموظف", right - 14f, infoTop + 24f, 180f, paint(gold, 11f, true))
             drawRtl(canvas, "اسم الموظف", right - 14f, infoTop + 47f, 175f, small)
-            drawRtl(canvas, snapshot.employeeName, right - 14f, infoTop + 65f, 290f, bold)
+            drawAuto(canvas, snapshot.employeeName, right - 14f, infoTop + 65f, 290f, bold)
             drawRtl(canvas, "كود الموظف: ${snapshot.employeeCode}", width / 2f - 12f, infoTop + 47f, 190f, small)
-            drawRtl(canvas, "المسمى الوظيفي: ${snapshot.jobTitle}", width / 2f - 12f, infoTop + 70f, 230f, regular)
+            drawAuto(canvas, "المسمى الوظيفي: ${snapshot.jobTitle}", width / 2f - 12f, infoTop + 70f, 230f, regular)
             drawRtl(canvas, "الفترة: ${snapshot.monthKey}", right - 14f, infoTop + 83f, 190f, regular)
 
             // Earnings and deductions table
@@ -250,11 +250,31 @@ internal object PayrollReportPdf {
     private fun drawCell(canvas: Canvas, text: String, x: Float, y: Float, width: Float, height: Float, paint: TextPaint, rtl: Boolean) {
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, (width - 10f).toInt().coerceAtLeast(1))
             .setAlignment(if (rtl) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_CENTER)
-            .setTextDirection(if (rtl) TextDirectionHeuristics.RTL else TextDirectionHeuristics.LTR)
-            .setMaxLines(2)
+            .setTextDirection(if (rtl) TextDirectionHeuristics.FIRSTSTRONG_RTL else TextDirectionHeuristics.FIRSTSTRONG_LTR)
+            .setIncludePad(false)
+            .setLineSpacing(1.5f, 1.0f)
+            .setMaxLines(if (rtl) 2 else 1)
+            .setEllipsize(android.text.TextUtils.TruncateAt.END)
             .build()
         canvas.save()
         canvas.translate(x + 5f, y + (height - layout.height) / 2f)
+        layout.draw(canvas)
+        canvas.restore()
+    }
+
+    private fun drawAuto(canvas: Canvas, text: String, right: Float, baseline: Float, maxWidth: Float, paint: TextPaint) {
+        val direction = if (text.any { it in '\u0590'..'\u08FF' }) TextDirectionHeuristics.FIRSTSTRONG_RTL
+            else TextDirectionHeuristics.FIRSTSTRONG_LTR
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, maxWidth.toInt().coerceAtLeast(1))
+            .setAlignment(if (direction == TextDirectionHeuristics.FIRSTSTRONG_RTL) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_NORMAL)
+            .setTextDirection(direction)
+            .setIncludePad(false)
+            .setLineSpacing(2f, 1.0f)
+            .setMaxLines(2)
+            .setEllipsize(android.text.TextUtils.TruncateAt.END)
+            .build()
+        canvas.save()
+        canvas.translate(right - maxWidth, baseline - layout.height + 5f)
         layout.draw(canvas)
         canvas.restore()
     }

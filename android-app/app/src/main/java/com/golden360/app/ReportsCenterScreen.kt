@@ -1,11 +1,8 @@
 package com.golden360.app
 
-import android.content.ClipData
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -111,30 +108,11 @@ internal fun ReportsCenterScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var payload by remember { mutableStateOf<ReportPayload?>(null) }
-    var shareAfterSave by remember { mutableStateOf(true) }
     var monthPickerOpen by remember { mutableStateOf(false) }
+    var employeeExpanded by remember { mutableStateOf(false) }
+    var selectedEmployeeId by remember { mutableStateOf("ALL") }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        val report = payload
-        if (uri != null && report != null) {
-            scope.launch {
-                val result = runCatching {
-                    withContext(Dispatchers.IO) {
-                        val output = requireNotNull(context.contentResolver.openOutputStream(uri)) {
-                            "تعذر فتح ملف الحفظ"
-                        }
-                        output.use { it.write(ReportsCsv.toCsv(report.csvRows).toByteArray(Charsets.UTF_8)) }
-                    }
-                    if (shareAfterSave) shareCsvFile(context, uri)
-                }
-                error = result.exceptionOrNull()?.let {
-                    "تعذر حفظ/مشاركة التقرير: ${it.message ?: "خطأ غير معروف"}"
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(employees, month, selectedKind) {
+    LaunchedEffect(employees, month, selectedKind, selectedEmployeeId) {
         loading = true
         error = null
         payload = null
@@ -144,7 +122,8 @@ internal fun ReportsCenterScreen(
             }
             val report = withContext(Dispatchers.IO) {
                 val allEmployees = EmployeeDatabase.get(context).employeeDao().getAllEmployees()
-                buildReportPayload(allEmployees, dao, month, selectedKind)
+                val reportEmployees = if (selectedEmployeeId == "ALL") allEmployees else allEmployees.filter { it.id.toString() == selectedEmployeeId }
+                buildReportPayload(reportEmployees, dao, month, selectedKind)
             }
             payload = report
         } catch (failure: Exception) {
@@ -240,6 +219,28 @@ internal fun ReportsCenterScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = reportsFieldColors()
                 )
+                ExposedDropdownMenuBox(
+                    expanded = employeeExpanded,
+                    onExpandedChange = { employeeExpanded = !employeeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedEmployeeId == "ALL") "جميع الموظفين" else employees.firstOrNull { it.id.toString() == selectedEmployeeId }?.let { "${it.fullName} • ${it.code}" } ?: "جميع الموظفين",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("نطاق الكشف") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = employeeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = reportsFieldColors()
+                    )
+                    ExposedDropdownMenu(expanded = employeeExpanded, onDismissRequest = { employeeExpanded = false }) {
+                        DropdownMenuItem(text = { Text("كشف مجمع — جميع الموظفين") }, onClick = { selectedEmployeeId = "ALL"; employeeExpanded = false })
+                        employees.forEach { employee ->
+                            DropdownMenuItem(text = { Text("${employee.fullName} • ${employee.code}") }, onClick = { selectedEmployeeId = employee.id.toString(); employeeExpanded = false })
+                        }
+                    }
+                }
+                Text("يمكن استخراج كشف لموظف واحد أو كشف مجمع. تُعرض الأسماء والمسميات كما هي مسجلة في ملف الموظف، بالعربية أو الإنجليزية.", color = Muted, fontSize = 11.sp)
                 Text(
                     "التقرير يُبنى من قاعدة بيانات الرواتب والحضور المسجلة على هذا الجهاز. الحركات الملغاة تظهر في التقرير بحالتها ولا تدخل في إجمالي المبالغ الفعالة.",
                     color = Muted,
@@ -284,20 +285,52 @@ internal fun ReportsCenterScreen(
                 }
                 Button(
                     onClick = {
-                        shareAfterSave = true
-                        exportLauncher.launch("GOLDEN360_${selectedKind.fileName}_$month.csv")
+                        val reportToShare = report
+                        val reportTitle = selectedKind.label
+                        val reportMonth = month
+                        val employeeScope = if (selectedEmployeeId == "ALL") "جميع الموظفين" else
+                            employees.firstOrNull { it.id.toString() == selectedEmployeeId }?.fullName ?: "موظف"
+                        scope.launch {
+                            error = null
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    val cacheDir = File(context.cacheDir, "shared_reports").apply { mkdirs() }
+                                    cacheDir.listFiles()?.filter { it.isFile && System.currentTimeMillis() - it.lastModified() > 24L * 60 * 60 * 1000 }
+                                        ?.forEach { it.delete() }
+                                    val safeKind = selectedKind.fileName.replace(Regex("[^A-Za-z0-9_-]"), "_")
+                                    val pdfFile = File(cacheDir, "GOLDEN360_${safeKind}_${reportMonth}_${System.currentTimeMillis()}.pdf")
+                                    ReportsPdf.write(pdfFile, reportTitle, reportMonth, employeeScope, reportToShare.csvRows)
+                                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdfFile)
+                                }
+                            }
+                            result.onSuccess { uri ->
+                                runCatching {
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/pdf"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        clipData = android.content.ClipData.newUri(context.contentResolver, "GOLDEN 360 PDF report", uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "مشاركة كشف PDF من GOLDEN 360"))
+                                }.onFailure { failure ->
+                                    error = "تم تجهيز PDF لكن تعذرت المشاركة: ${failure.message ?: "خطأ غير معروف"}"
+                                }
+                            }.onFailure { failure ->
+                                error = "تعذر تجهيز ملف PDF: ${failure.message ?: "خطأ غير معروف"}"
+                            }
+                        }
                     },
                     enabled = !loading && report.csvRows.size > 1,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
                 ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null)
+                    Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(Modifier.padding(horizontal = 2.dp))
-                    Text("حفظ ومشاركة تقرير Excel (CSV)", fontWeight = FontWeight.Bold)
+                    Text("مشاركة الكشف PDF مباشرة", fontWeight = FontWeight.Bold)
                 }
                 Text(
-                    "يتم حفظ الملف بصيغة CSV متوافقة مع Excel مع دعم النص العربي. يمكن فتحه في Excel ثم حفظه بصيغة XLSX.",
+                    "يتم إنشاء ملف PDF مؤقتًا داخل مساحة التطبيق ثم فتح قائمة المشاركة مباشرة؛ لا يلزم حفظه يدويًا في الجهاز. يمكنك إرساله عبر واتساب أو البريد أو أي تطبيق يدعم PDF.",
                     color = Muted,
                     fontSize = 11.sp
                 )
@@ -459,16 +492,6 @@ private fun effectiveDatedAbsenceDates(
     statusEffectiveDate = employee.statusEffectiveDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
     suspensionPeriods = employee.suspensionPeriods
 )
-
-private fun shareCsvFile(context: Context, uri: Uri) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/csv"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        clipData = ClipData.newUri(context.contentResolver, "GOLDEN 360 CSV report", uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, "مشاركة تقرير GOLDEN 360"))
-}
 
 @Composable
 private fun reportsFieldColors() = OutlinedTextFieldDefaults.colors(

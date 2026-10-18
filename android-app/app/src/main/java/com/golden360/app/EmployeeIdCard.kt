@@ -7,6 +7,10 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.CancellationSignal
@@ -137,7 +141,7 @@ internal fun EmployeeIdCardScreen(
                     }
                 }
                 Text(
-                    employee.fullName.uppercase(java.util.Locale.ROOT),
+                    employee.fullName,
                     color = Color(0xFF0D0E0F),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -145,7 +149,7 @@ internal fun EmployeeIdCardScreen(
                     maxLines = 2
                 )
                 Text(
-                    employeeJobTitleEnglish(employee.jobTitle),
+                    employee.jobTitle,
                     color = Color(0xFF7E5E24),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -253,6 +257,24 @@ private fun decodeSampledBitmap(context: Context, uri: Uri, targetWidth: Int, ta
     val options = BitmapFactory.Options().apply { inSampleSize = sample.coerceAtLeast(1) }
     return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 }
+private fun drawShapedText(canvas: Canvas, text: String, left: Float, baseline: Float, width: Float, paint: TextPaint) {
+    if (text.isBlank()) return
+    val direction = if (text.any { it in '\u0590'..'\u08FF' }) TextDirectionHeuristics.FIRSTSTRONG_RTL
+        else TextDirectionHeuristics.FIRSTSTRONG_LTR
+    val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width.toInt().coerceAtLeast(1))
+        .setAlignment(Layout.Alignment.ALIGN_CENTER)
+        .setTextDirection(direction)
+        .setIncludePad(false)
+        .setLineSpacing(2f, 1f)
+        .setMaxLines(1)
+        .setEllipsize(android.text.TextUtils.TruncateAt.END)
+        .build()
+    canvas.save()
+    canvas.translate(left, baseline - layout.height + paint.textSize * 0.25f)
+    layout.draw(canvas)
+    canvas.restore()
+}
+
 private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): String {
     if (paint.measureText(text) <= maxWidth) return text
     var shortened = text
@@ -350,14 +372,20 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = black
     paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
     paint.textSize = trimWidth * 0.052f
-    canvas.drawText(ellipsizeCentered(employee.fullName.uppercase(java.util.Locale.ROOT), paint, trimWidth - 12f), trim.centerX(), nameY, paint)
+    val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
+        color = black
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        textSize = paint.textSize
+    }
+    drawShapedText(canvas, employee.fullName, trim.left + 6f, nameY, trimWidth - 12f, namePaint)
 
-    val job = employeeJobTitleEnglish(employee.jobTitle)
+    val job = employee.jobTitle
     paint.color = deepGold
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     paint.textSize = trimWidth * 0.034f
     val jobY = nameY + trimHeight * 0.052f
-    canvas.drawText(ellipsizeCentered(job, paint, trimWidth - 12f), trim.centerX(), jobY, paint)
+    val jobPaint = TextPaint(paint).apply { textAlign = Paint.Align.LEFT }
+    drawShapedText(canvas, job, trim.left + 6f, jobY, trimWidth - 12f, jobPaint)
 
     // Employee number label and value are placed on separate lines within the pill.
     val codeY = jobY + trimHeight * 0.075f
