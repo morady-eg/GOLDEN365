@@ -30,6 +30,14 @@ internal data class PayrollReportEmployee(
     val netSalary: Long
 )
 
+internal val MONTHLY_PAYROLL_HEADERS = listOf(
+    "الموظف", "الأساسي", "الورديات الإضافية", "المكافآت",
+    "السلف", "خصم الغياب", "الجزاءات", "صافي المستحق"
+)
+
+internal fun monthlyPayrollEmployeeLabel(employee: PayrollReportEmployee): String =
+    monthlyPayrollEmployeeLabel(employee)
+
 internal object PayrollReportPdf {
     private val black = android.graphics.Color.rgb(28, 28, 28)
     private val gold = android.graphics.Color.rgb(164, 126, 43)
@@ -142,7 +150,7 @@ internal object PayrollReportPdf {
             val margin = 30f
             // Column sequence is authored right-to-left: employee, base, overtime, bonuses, advances, absence, penalties, net.
             val columns = listOf(145f, 90f, 90f, 90f, 90f, 90f, 90f, 97f)
-            val headers = listOf("الموظف", "الأساسي", "الورديات الإضافية", "المكافآت", "السلف", "خصم الغياب", "الجزاءات", "صافي المستحق")
+            val headers = MONTHLY_PAYROLL_HEADERS
             val chunks = employees.chunked(8).ifEmpty { listOf(emptyList()) }
             chunks.forEachIndexed { pageIndex, chunk ->
                 val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, pageIndex + 1).create())
