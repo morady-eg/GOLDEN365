@@ -113,6 +113,8 @@ internal fun ReportsCenterScreen(
     var payload by remember { mutableStateOf<ReportPayload?>(null) }
     var shareAfterSave by remember { mutableStateOf(true) }
     var monthPickerOpen by remember { mutableStateOf(false) }
+    var employeeExpanded by remember { mutableStateOf(false) }
+    var selectedEmployeeId by remember { mutableStateOf("ALL") }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val report = payload
@@ -134,7 +136,7 @@ internal fun ReportsCenterScreen(
         }
     }
 
-    LaunchedEffect(employees, month, selectedKind) {
+    LaunchedEffect(employees, month, selectedKind, selectedEmployeeId) {
         loading = true
         error = null
         payload = null
@@ -144,7 +146,8 @@ internal fun ReportsCenterScreen(
             }
             val report = withContext(Dispatchers.IO) {
                 val allEmployees = EmployeeDatabase.get(context).employeeDao().getAllEmployees()
-                buildReportPayload(allEmployees, dao, month, selectedKind)
+                val reportEmployees = if (selectedEmployeeId == "ALL") allEmployees else allEmployees.filter { it.id.toString() == selectedEmployeeId }
+                buildReportPayload(reportEmployees, dao, month, selectedKind)
             }
             payload = report
         } catch (failure: Exception) {
@@ -240,6 +243,28 @@ internal fun ReportsCenterScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = reportsFieldColors()
                 )
+                ExposedDropdownMenuBox(
+                    expanded = employeeExpanded,
+                    onExpandedChange = { employeeExpanded = !employeeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedEmployeeId == "ALL") "جميع الموظفين" else employees.firstOrNull { it.id.toString() == selectedEmployeeId }?.let { "${it.fullName} • ${it.code}" } ?: "جميع الموظفين",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("نطاق الكشف") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = employeeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = reportsFieldColors()
+                    )
+                    ExposedDropdownMenu(expanded = employeeExpanded, onDismissRequest = { employeeExpanded = false }) {
+                        DropdownMenuItem(text = { Text("كشف مجمع — جميع الموظفين") }, onClick = { selectedEmployeeId = "ALL"; employeeExpanded = false })
+                        employees.forEach { employee ->
+                            DropdownMenuItem(text = { Text("${employee.fullName} • ${employee.code}") }, onClick = { selectedEmployeeId = employee.id.toString(); employeeExpanded = false })
+                        }
+                    }
+                }
+                Text("يمكن استخراج كشف لموظف واحد أو كشف مجمع. تُعرض الأسماء والمسميات كما هي مسجلة في ملف الموظف، بالعربية أو الإنجليزية.", color = Muted, fontSize = 11.sp)
                 Text(
                     "التقرير يُبنى من قاعدة بيانات الرواتب والحضور المسجلة على هذا الجهاز. الحركات الملغاة تظهر في التقرير بحالتها ولا تدخل في إجمالي المبالغ الفعالة.",
                     color = Muted,
