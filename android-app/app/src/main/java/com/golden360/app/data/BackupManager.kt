@@ -4,6 +4,8 @@ import android.content.Context
 import net.sqlcipher.database.SQLiteDatabase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -33,27 +35,42 @@ internal object BackupManager {
         val employeePassphrase = DatabaseEncryption.currentPassphrase(app, EMPLOYEE_DB)
         val payrollPassphrase = DatabaseEncryption.currentPassphrase(app, PAYROLL_DB)
         closeDatabases()
+        var zipFile: File? = null
+        var encryptedFile: File? = null
         try {
             val employeeFile = app.getDatabasePath(EMPLOYEE_DB)
             val payrollFile = app.getDatabasePath(PAYROLL_DB)
             check(employeeFile.isFile && employeeFile.length() > 0L) { "قاعدة بيانات الموظفين غير موجودة" }
             check(payrollFile.isFile && payrollFile.length() > 0L) { "قاعدة بيانات الرواتب غير موجودة" }
             validateBackupSizes(employeeFile.length(), payrollFile.length())
-            val employeeBytes = employeeFile.readBytes()
-            val payrollBytes = payrollFile.readBytes()
-            val zip = ByteArrayOutputStream()
-            ZipOutputStream(zip).use { out ->
+
+            // Build the ZIP on disk and stream each database file into it. Do not keep both
+            // databases plus a full ZIP copy in heap memory on low-memory Android devices.
+            val archive = File.createTempFile("golden360-backup-", ".zip", app.cacheDir)
+            zipFile = archive
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(archive))).use { out ->
                 addEntry(out, "format.txt", "GOLDEN360_BACKUP_V1".toByteArray(StandardCharsets.UTF_8))
-                addEntry(out, "employees.db", employeeBytes)
+                addEntry(out, "employees.db", FileInputStream(employeeFile))
                 addEntry(out, "employees.key", employeePassphrase.toByteArray(StandardCharsets.UTF_8))
-                addEntry(out, "payroll.db", payrollBytes)
+                addEntry(out, "payroll.db", FileInputStream(payrollFile))
                 addEntry(out, "payroll.key", payrollPassphrase.toByteArray(StandardCharsets.UTF_8))
             }
-            validateBackupSizes(employeeBytes.size.toLong(), payrollBytes.size.toLong(), zip.size().toLong())
-            val encrypted = BackupCrypto.encrypt(zip.toByteArray(), password)
-            validateBackupSizes(employeeBytes.size.toLong(), payrollBytes.size.toLong(), zip.size().toLong(), encrypted.size.toLong())
-            return encrypted
+            validateBackupSizes(employeeFile.length(), payrollFile.length(), archive.length())
+
+            // Encrypt directly from the temporary ZIP into a second temporary file. Only the
+            // final encrypted payload is returned to the Android share/document flow.
+            val encrypted = File.createTempFile("golden360-backup-", ".g360", app.cacheDir)
+            encryptedFile = encrypted
+            FileInputStream(archive).use { input ->
+                BufferedOutputStream(FileOutputStream(encrypted)).use { output ->
+                    BackupCrypto.encrypt(input, output, password)
+                }
+            }
+            validateBackupSizes(employeeFile.length(), payrollFile.length(), archive.length(), encrypted.length())
+            return encrypted.readBytes()
         } finally {
+            zipFile?.delete()
+            encryptedFile?.delete()
             reopenDatabases(app)
         }
     }
@@ -61,22 +78,29 @@ internal object BackupManager {
     fun restoreEncryptedBackup(context: Context, encryptedBackup: ByteArray, password: CharArray) {
         require(encryptedBackup.size <= MAX_BACKUP_BYTES) { "حجم ملف النسخة الاحتياطية أكبر من الحد المسموح" }
         val app = context.applicationContext
-        val plainZip = BackupCrypto.decrypt(encryptedBackup, password)
-        require(plainZip.size <= MAX_BACKUP_BYTES) { "محتوى النسخة الاحتياطية أكبر من الحد المسموح" }
-        val entries = readAndValidateArchive(plainZip)
-        val employeePassphrase = entries.getValue("employees.key").toString(StandardCharsets.UTF_8)
-        val payrollPassphrase = entries.getValue("payroll.key").toString(StandardCharsets.UTF_8)
-        require(employeePassphrase.isNotBlank() && payrollPassphrase.isNotBlank()) { "مفاتيح قواعد البيانات غير صالحة" }
-
-        val staging = File(app.cacheDir, "golden360-restore-staging").apply {
-            deleteRecursively()
-            check(mkdirs()) { "تعذر تجهيز الاستعادة الآمنة" }
+        val staging = File.createTempFile("golden360-restore-", ".tmp", app.cacheDir).apply {
+            check(delete() && mkdirs()) { "تعذر تجهيز الاستعادة الآمنة" }
         }
-        val employeeStage = File(staging, EMPLOYEE_DB)
-        val payrollStage = File(staging, PAYROLL_DB)
+        var plainZipFile: File? = null
         try {
-            employeeStage.writeBytes(entries.getValue("employees.db"))
-            payrollStage.writeBytes(entries.getValue("payroll.db"))
+            // Decrypt to a temporary file rather than allocating the complete decrypted archive.
+            val archive = File.createTempFile("golden360-restore-", ".zip", app.cacheDir)
+            plainZipFile = archive
+            ByteArrayInputStream(encryptedBackup).use { input ->
+                BufferedOutputStream(FileOutputStream(archive)).use { output ->
+                    BackupCrypto.decrypt(input, output, password)
+                }
+            }
+            require(archive.length() in 1..MAX_BACKUP_BYTES.toLong()) {
+                "محتوى النسخة الاحتياطية أكبر من الحد المسموح أو غير صالح"
+            }
+            val entries = readAndValidateArchive(archive, staging)
+            val employeePassphrase = entries.getValue("employees.key").readText(StandardCharsets.UTF_8)
+            val payrollPassphrase = entries.getValue("payroll.key").readText(StandardCharsets.UTF_8)
+            require(employeePassphrase.isNotBlank() && payrollPassphrase.isNotBlank()) { "مفاتيح قواعد البيانات غير صالحة" }
+
+            val employeeStage = entries.getValue("employees.db")
+            val payrollStage = entries.getValue("payroll.db")
             validateEncryptedDatabase(employeeStage, employeePassphrase)
             validateEncryptedDatabase(payrollStage, payrollPassphrase)
 
@@ -128,8 +152,8 @@ internal object BackupManager {
                 reopenDatabases(app)
             }
         } finally {
+            plainZipFile?.delete()
             staging.deleteRecursively()
-            plainZip.fill(0)
         }
     }
 
@@ -149,33 +173,43 @@ internal object BackupManager {
         }
     }
 
-    private fun readAndValidateArchive(zipBytes: ByteArray): Map<String, ByteArray> {
-        val entries = linkedMapOf<String, ByteArray>()
+    private fun readAndValidateArchive(zipFile: File, staging: File): Map<String, File> {
+        val entries = linkedMapOf<String, File>()
         var totalBytes = 0L
-        ZipInputStream(ByteArrayInputStream(zipBytes)).use { input ->
+        ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use { input ->
             while (true) {
                 val entry = input.nextEntry ?: break
-                require(!entry.isDirectory && entry.name in ALLOWED_ENTRIES) { "تحتوي النسخة الاحتياطية على ملف غير مسموح" }
-                require(entry.name !in entries) { "توجد ملفات مكررة داخل النسخة الاحتياطية" }
-                val output = ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                var entryBytes = 0L
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    entryBytes += count
-                    totalBytes += count
-                    require(entryBytes <= MAX_ENTRY_BYTES && totalBytes <= MAX_BACKUP_BYTES) {
-                        "حجم محتويات النسخة الاحتياطية يتجاوز الحد المسموح"
-                    }
-                    output.write(buffer, 0, count)
+                require(!entry.isDirectory && entry.name in ALLOWED_ENTRIES) {
+                    "تحتوي النسخة الاحتياطية على ملف غير مسموح"
                 }
-                entries[entry.name] = output.toByteArray()
+                require(entry.name !in entries) { "توجد ملفات مكررة داخل النسخة الاحتياطية" }
+                val target = File(staging, entry.name)
+                val entryLimit = if (entry.name == "employees.db" || entry.name == "payroll.db") {
+                    MAX_ENTRY_BYTES.toLong()
+                } else {
+                    4096L
+                }
+                var entryBytes = 0L
+                BufferedOutputStream(FileOutputStream(target)).use { output ->
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        entryBytes += count
+                        totalBytes += count
+                        require(entryBytes <= entryLimit && totalBytes <= MAX_BACKUP_BYTES) {
+                            "حجم محتويات النسخة الاحتياطية يتجاوز الحد المسموح"
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                }
+                entries[entry.name] = target
                 input.closeEntry()
             }
         }
         require(entries.keys == ALLOWED_ENTRIES) { "النسخة الاحتياطية ناقصة أو غير متوافقة" }
-        require(entries.getValue("format.txt").toString(StandardCharsets.UTF_8) == "GOLDEN360_BACKUP_V1") {
+        require(entries.getValue("format.txt").readText(StandardCharsets.UTF_8) == "GOLDEN360_BACKUP_V1") {
             "إصدار النسخة الاحتياطية غير مدعوم"
         }
         return entries
@@ -208,8 +242,12 @@ internal object BackupManager {
     }
 
     private fun addEntry(output: ZipOutputStream, name: String, bytes: ByteArray) {
+        addEntry(output, name, ByteArrayInputStream(bytes))
+    }
+
+    private fun addEntry(output: ZipOutputStream, name: String, input: java.io.InputStream) {
         output.putNextEntry(ZipEntry(name))
-        output.write(bytes)
+        input.use { it.copyTo(output, 8192) }
         output.closeEntry()
     }
 

@@ -2,6 +2,8 @@ package com.golden360.app.data
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 import javax.crypto.AEADBadTagException
@@ -49,6 +51,70 @@ internal object BackupCrypto {
         cipher.updateAAD(header)
         return try {
             cipher.doFinal(payload.copyOfRange(headerLength, payload.size))
+        } catch (error: AEADBadTagException) {
+            throw SecurityException("كلمة المرور غير صحيحة أو تم تعديل ملف النسخة الاحتياطية", error)
+        }
+    }
+
+    /**
+     * Streaming variant used by BackupManager to avoid keeping the complete plaintext archive
+     * and complete encrypted archive in memory at the same time.
+     */
+    fun encrypt(input: InputStream, output: OutputStream, password: CharArray) {
+        require(password.size >= MIN_PASSWORD_LENGTH) { "كلمة المرور يجب ألا تقل عن 10 أحرف" }
+        val salt = ByteArray(SALT_BYTES).also(SecureRandom()::nextBytes)
+        val iv = ByteArray(IV_BYTES).also(SecureRandom()::nextBytes)
+        val header = MAGIC + salt + iv
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, deriveKey(password, salt), GCMParameterSpec(TAG_BITS, iv))
+        cipher.updateAAD(header)
+        output.write(header)
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (count == 0) continue
+            cipher.update(buffer, 0, count)?.let(output::write)
+        }
+        cipher.doFinal().let(output::write)
+        output.flush()
+    }
+
+    /**
+     * Streaming authenticated decryption. Callers must write to a temporary file and discard it
+     * on any exception because GCM authentication is only confirmed by doFinal().
+     */
+    fun decrypt(input: InputStream, output: OutputStream, password: CharArray) {
+        require(password.size >= MIN_PASSWORD_LENGTH) { "كلمة المرور يجب ألا تقل عن 10 أحرف" }
+        val headerLength = MAGIC.size + SALT_BYTES + IV_BYTES
+        val header = ByteArray(headerLength)
+        var headerOffset = 0
+        while (headerOffset < header.size) {
+            val count = input.read(header, headerOffset, header.size - headerOffset)
+            require(count > 0) { "ملف النسخة الاحتياطية غير صالح أو تالف" }
+            headerOffset += count
+        }
+        require(header.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)) {
+            "الملف ليس نسخة احتياطية من GOLDEN 360"
+        }
+        val salt = header.copyOfRange(MAGIC.size, MAGIC.size + SALT_BYTES)
+        val iv = header.copyOfRange(MAGIC.size + SALT_BYTES, headerLength)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, deriveKey(password, salt), GCMParameterSpec(TAG_BITS, iv))
+        cipher.updateAAD(header)
+        val buffer = ByteArray(8192)
+        var ciphertextBytes = 0L
+        try {
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (count == 0) continue
+                ciphertextBytes += count
+                cipher.update(buffer, 0, count)?.let(output::write)
+            }
+            require(ciphertextBytes >= 16L) { "ملف النسخة الاحتياطية غير صالح أو تالف" }
+            cipher.doFinal().let(output::write)
+            output.flush()
         } catch (error: AEADBadTagException) {
             throw SecurityException("كلمة المرور غير صحيحة أو تم تعديل ملف النسخة الاحتياطية", error)
         }
