@@ -106,7 +106,7 @@ internal object ReportsPdf {
         centered(canvas, "GOLDEN 360", pageWidth / 2f, 30f, paint(white, 20f, true))
         centered(canvas, title, pageWidth / 2f, 56f, paint(android.graphics.Color.rgb(239, 211, 143), 14f, true))
         centered(canvas, "الفترة: $month    •    النطاق: $employeeScope", pageWidth / 2f, 81f, paint(white, 10f))
-        centered(canvas, "تاريخ الإصدار: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd  hh:mm a", Locale.ROOT)),
+        centered(canvas, "تاريخ الإصدار: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd  hh:mm a", Locale.ENGLISH)),
             pageWidth / 2f, 99f, paint(android.graphics.Color.rgb(220, 220, 220), 9f))
     }
 
