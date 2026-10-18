@@ -140,8 +140,9 @@ internal object PayrollReportPdf {
             val width = 842
             val height = 595
             val margin = 30f
+            // Column sequence is authored right-to-left: employee, base, overtime, bonuses, advances, absence, penalties, net.
             val columns = listOf(145f, 90f, 90f, 90f, 90f, 90f, 90f, 97f)
-            val headers = listOf("الموظف", "الأساسي", "الورديات الإضافية", "المكافآت", "خصم الغياب", "السلف", "الجزاءات", "صافي المستحق")
+            val headers = listOf("الموظف", "الأساسي", "الورديات الإضافية", "المكافآت", "السلف", "خصم الغياب", "الجزاءات", "صافي المستحق")
             val chunks = employees.chunked(8).ifEmpty { listOf(emptyList()) }
             chunks.forEachIndexed { pageIndex, chunk ->
                 val page = document.startPage(PdfDocument.PageInfo.Builder(width, height, pageIndex + 1).create())
@@ -154,17 +155,17 @@ internal object PayrollReportPdf {
                 centered(canvas, "كشف الرواتب المجمع • $month", width / 2f, 57f, paint(android.graphics.Color.rgb(239, 211, 143), 12f, true))
                 val subtitle = "عدد الموظفين: ${employees.size}    |    الصفحة ${pageIndex + 1} من ${chunks.size}"
                 centered(canvas, subtitle, width / 2f, 77f, paint(android.graphics.Color.WHITE, 8f))
-                var x = margin
+                var x = width - margin
                 val top = 116f
                 val rowHeight = 34f
                 canvas.drawRoundRect(RectF(margin, top, width - margin, top + rowHeight), 5f, 5f, paint(gold))
                 headers.forEachIndexed { i, label ->
+                    x -= columns[i]
                     drawCell(canvas, label, x, top, columns[i], rowHeight, paint(android.graphics.Color.WHITE, 9f, true), true)
-                    x += columns[i]
                 }
                 var y = top + rowHeight
                 chunk.forEachIndexed { rowIndex, employee ->
-                    x = margin
+                    x = width - margin
                     val rowPaint = if (rowIndex % 2 == 0) paint(android.graphics.Color.rgb(249, 248, 245)) else paint(android.graphics.Color.WHITE)
                     canvas.drawRect(margin, y, width - margin, y + rowHeight, rowPaint)
                     canvas.drawLine(margin, y + rowHeight, width - margin, y + rowHeight, paint(line, 0.8f))
@@ -173,14 +174,14 @@ internal object PayrollReportPdf {
                         money(employee.baseSalary),
                         money(employee.overtime),
                         money(employee.bonuses),
-                        money(employee.absenceDeduction),
                         money(employee.advances),
+                        money(employee.absenceDeduction),
                         money(employee.penalties),
                         money(employee.netSalary)
                     )
                     values.forEachIndexed { i, value ->
-                        drawCell(canvas, value, x, y, columns[i], rowHeight, paint(if (i == 6 && employee.netSalary < 0) red else ink, if (i == 0) 8.5f else 9f, i == 6), i == 0)
-                        x += columns[i]
+                        x -= columns[i]
+                        drawCell(canvas, value, x, y, columns[i], rowHeight, paint(if (i == 7 && employee.netSalary < 0) red else ink, if (i == 0) 8.5f else 9f, i == 7), i == 0)
                     }
                     y += rowHeight
                 }
@@ -191,17 +192,17 @@ internal object PayrollReportPdf {
                         money(employees.sumOf { it.baseSalary }),
                         money(employees.sumOf { it.overtime }),
                         money(employees.sumOf { it.bonuses }),
-                        money(employees.sumOf { it.absenceDeduction }),
                         money(employees.sumOf { it.advances }),
+                        money(employees.sumOf { it.absenceDeduction }),
                         money(employees.sumOf { it.penalties }),
                         money(employees.fold(0L) { total, item -> Math.addExact(total, item.netSalary) })
                     )
                     canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(paleGold))
                     canvas.drawRoundRect(RectF(margin, totalTop, width - margin, totalTop + 30f), 5f, 5f, paint(gold, 1f, false, gold))
-                    var totalX = margin
+                    var totalX = width - margin
                     totalValues.forEachIndexed { i, value ->
+                        totalX -= columns[i]
                         drawCell(canvas, value, totalX, totalTop, columns[i], 30f, paint(if (i == totalValues.lastIndex) gold else black, 8.5f, true), i == 0)
-                        totalX += columns[i]
                     }
                     val sigY = 510f
                     canvas.drawLine(margin + 10f, sigY, margin + 170f, sigY, paint(line, 1.1f))
