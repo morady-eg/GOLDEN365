@@ -52,10 +52,12 @@ class EmployeeValidatorTest {
         assertFalse(EmployeeValidator.validate(validDraft().copy(nationalId = "12345678901234")).errors.containsKey("nationalId"))
     }
 
-    @Test fun formatsUniqueSequenceWithGsPrefixAndSixDigits() {
-        assertEquals("GS_000001", EmployeeCodeFormatter.format(1))
-        assertEquals("GS_000042", EmployeeCodeFormatter.format(42))
-        assertEquals("GS_1000000", EmployeeCodeFormatter.format(1_000_000))
+    @Test fun formatsSequentialEmployeeCodesStartingAtGs001() {
+        assertEquals("GS001", EmployeeCodeFormatter.format(1))
+        assertEquals("GS002", EmployeeCodeFormatter.format(2))
+        assertEquals("GS042", EmployeeCodeFormatter.format(42))
+        assertEquals("GS999", EmployeeCodeFormatter.format(999))
+        assertEquals("GS1000", EmployeeCodeFormatter.format(1_000))
     }
 
     @Test fun convertsMoneyToIntegerPiasters() {
