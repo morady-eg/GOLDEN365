@@ -258,21 +258,32 @@ private fun decodeSampledBitmap(context: Context, uri: Uri, targetWidth: Int, ta
     return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 }
 private fun drawShapedText(canvas: Canvas, text: String, left: Float, baseline: Float, width: Float, paint: TextPaint) {
-    if (text.isBlank()) return
-    val direction = if (text.any { it in '\u0590'..'\u08FF' }) TextDirectionHeuristics.FIRSTSTRONG_RTL
-        else TextDirectionHeuristics.FIRSTSTRONG_LTR
-    val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width.toInt().coerceAtLeast(1))
+    if (text.isBlank() || width <= 1f) return
+    // Fit long names/roles before truncating; measure and draw with the same shaped layout.
+    val originalSize = paint.textSize
+    val minimumSize = maxOf(5f, originalSize * 0.72f)
+    while (paint.textSize > minimumSize && paint.measureText(text) > width - 8f) {
+        paint.textSize = (paint.textSize - 0.35f).coerceAtLeast(minimumSize)
+    }
+    val layout = StaticLayout.Builder.obtain(
+        text, 0, text.length, paint, width.toInt().coerceAtLeast(1)
+    )
         .setAlignment(Layout.Alignment.ALIGN_CENTER)
-        .setTextDirection(direction)
-        .setIncludePad(false)
-        .setLineSpacing(2f, 1f)
+        // FIRSTSTRONG_LTR still follows Arabic-first text, but doesn't force numeric-only strings RTL.
+        .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
+        .setIncludePad(true)
+        .setLineSpacing(0f, 1f)
+        .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
+        .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
         .setMaxLines(1)
         .setEllipsize(android.text.TextUtils.TruncateAt.END)
         .build()
     canvas.save()
-    canvas.translate(left, baseline - layout.height + paint.textSize * 0.25f)
+    canvas.clipRect(left, baseline - paint.textSize - 3f, left + width, baseline + 3f)
+    canvas.translate(left, baseline - layout.height + 2f)
     layout.draw(canvas)
     canvas.restore()
+    paint.textSize = originalSize
 }
 
 private fun ellipsizeCentered(text: String, paint: Paint, maxWidth: Float): String {
@@ -336,7 +347,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText("EMPLOYEE IDENTITY", trim.centerX(), trim.top + trimHeight * 0.135f, paint)
 
     // Employee portrait with a clean gold frame.
-    val photoSize = trimWidth * 0.315f
+    val photoSize = trimWidth * 0.29f
     val photoLeft = trim.centerX() - photoSize / 2f
     val photoTop = trim.top + trimHeight * 0.215f
     val photoRect = RectF(photoLeft, photoTop, photoLeft + photoSize, photoTop + photoSize)
@@ -404,8 +415,8 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     canvas.drawText(ellipsizeCentered(employee.code, paint, codePill.width() - 10f), trim.centerX(), codeY + trimHeight * 0.017f, paint)
 
     // QR is kept comfortably above its caption and away from the footer.
-    val qrSize = trimWidth * 0.17f
-    val qrTop = trim.top + trimHeight * 0.70f
+    val qrSize = trimWidth * 0.19f
+    val qrTop = trim.top + trimHeight * 0.69f
     val qrRect = RectF(trim.centerX() - qrSize / 2f, qrTop, trim.centerX() + qrSize / 2f, qrTop + qrSize)
     paint.color = white
     canvas.drawRoundRect(RectF(qrRect.left - 3f, qrRect.top - 3f, qrRect.right + 3f, qrRect.bottom + 3f), 2f, 2f, paint)
@@ -416,7 +427,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     paint.color = deepGold
     paint.textSize = trimWidth * 0.021f
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.028f, paint)
+    canvas.drawText("SCAN TO IDENTIFY", trim.centerX(), qrRect.bottom + trimHeight * 0.024f, paint)
 
     // Brand footer and subtle side rail.
     paint.color = gold
