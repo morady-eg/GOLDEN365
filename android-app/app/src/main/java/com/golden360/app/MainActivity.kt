@@ -143,20 +143,31 @@ private fun Golden360App(dao: EmployeeDao) {
             if (!showForm && !showPayroll && !showIdCard && !showBackupScreen && !showReports) {
                 TopAppBar(
                     title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.8.sp, fontSize = 19.sp)
-                            Text(
-                                when (activeTab) {
-                                    "employees" -> "إدارة فريق العمل"
-                                    "advances" -> "السلف المالية"
-                                    "penalties" -> "الجزاءات"
-                                    "more" -> "المزيد من الخدمات"
-                                    "attendance" -> "الحضور والغياب"
-                                    "payroll" -> "مركز الرواتب والمستحقات"
-                                    else -> "إدارة الموارد البشرية"
-                                },
-                                color = Muted, fontSize = 11.sp
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.golden1),
+                                contentDescription = "GOLDEN 360 logo",
+                                modifier = Modifier.size(38.dp),
+                                contentScale = ContentScale.Fit
                             )
+                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.8.sp, fontSize = 19.sp)
+                                Text(
+                                    when (activeTab) {
+                                        "employees" -> "إدارة فريق العمل"
+                                        "advances" -> "السلف المالية"
+                                        "penalties" -> "الجزاءات"
+                                        "more" -> "المزيد من الخدمات"
+                                        "attendance" -> "الحضور والغياب"
+                                        "payroll" -> "مركز الرواتب والمستحقات"
+                                        else -> "إدارة الموارد البشرية"
+                                    },
+                                    color = Muted, fontSize = 11.sp
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -174,9 +185,20 @@ private fun Golden360App(dao: EmployeeDao) {
             } else {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; showReports -> "مركز التقارير"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.golden1),
+                                contentDescription = "GOLDEN 360 logo",
+                                modifier = Modifier.size(38.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            Column {
+                                Text("GOLDEN 360", color = SoftGold, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                                Text(when { showForm -> "ملف الموظف"; showIdCard -> "بطاقة الموظف"; showBackupScreen -> "النسخ الاحتياطي والاستعادة"; showReports -> "مركز التقارير"; else -> selectedType.arabicLabel }, color = Muted, fontSize = 12.sp)
+                            }
                         }
                     },
                     navigationIcon = {
