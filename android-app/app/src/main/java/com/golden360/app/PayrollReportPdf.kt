@@ -121,7 +121,7 @@ internal object PayrollReportPdf {
             if (snapshot.netSalaryPiasters < 0) drawRtl(canvas, "يتطلب مراجعة قبل الصرف", right - 16f, netTop + 48f, 220f, paint(red, 9f, true))
 
             val approvedAt = runCatching {
-                DateTimeFormatter.ofPattern("yyyy/MM/dd - HH:mm", Locale.ROOT)
+                DateTimeFormatter.ofPattern("yyyy/MM/dd - hh:mm a", Locale.ENGLISH)
                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(snapshot.approvedAtEpochMillis))
             }.getOrDefault("—")
             drawRtl(canvas, "تاريخ الاعتماد: $approvedAt", right - 4f, 690f, 250f, small)
