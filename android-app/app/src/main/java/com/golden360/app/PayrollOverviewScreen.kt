@@ -1,6 +1,8 @@
 package com.golden360.app
 
 import android.content.Context
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -184,7 +186,47 @@ internal fun PayrollOverviewScreen(
         }
         Button(
             onClick = {
-                shareMonthlyPdfAfterSave = true
+                val reportMonth = month.toString()
+                val reportRows = rows.map { row ->
+                    PayrollReportEmployee(
+                        name = row.employee.fullName,
+                        code = row.employee.code,
+                        jobTitle = row.employee.jobTitle,
+                        baseSalary = row.totals.baseSalaryPiasters,
+                        overtime = row.totals.overtimePiasters,
+                        bonuses = row.totals.bonusesPiasters,
+                        absenceDeduction = row.totals.absenceDeductionPiasters,
+                        advances = row.totals.advancesPiasters,
+                        penalties = row.totals.penaltiesPiasters,
+                        netSalary = row.totals.netSalaryPiasters
+                    )
+                }
+                scope.launch {
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) {
+                            val shareDir = File(context.cacheDir, "shared_reports").apply { mkdirs() }
+                            val file = File(shareDir, "GOLDEN360_PAYROLL_$reportMonth.pdf")
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            PayrollReportPdf.writeMonthly(context, uri, reportMonth, reportRows)
+                            uri
+                        }
+                    }
+                    result.onSuccess { shareMonthlyPdfFile(context, it) }
+                        .onFailure { error = "تعذرت مشاركة كشف الرواتب PDF: ${it.message ?: "خطأ غير معروف"}" }
+                }
+            },
+            enabled = !loading && error == null && rows.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+        ) {
+            Icon(Icons.Default.ReceiptLong, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("مشاركة كشف الرواتب PDF", fontWeight = FontWeight.Bold)
+        }
+        OutlinedButton(
+            onClick = {
+                shareMonthlyPdfAfterSave = false
                 pendingReport = month.toString() to rows.map { row ->
                     PayrollReportEmployee(
                         name = row.employee.fullName,
@@ -203,12 +245,11 @@ internal fun PayrollOverviewScreen(
             },
             enabled = !loading && error == null && rows.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().height(48.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Default.ReceiptLong, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("حفظ ومشاركة كشف الرواتب PDF", fontWeight = FontWeight.Bold)
+            Text("حفظ نسخة PDF على الجهاز", fontWeight = FontWeight.Bold)
         }
         Button(onClick = { onOpenTransactions(TransactionType.ADVANCE, null, month.toString()) }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Black)) {
             Icon(Icons.Default.ReceiptLong, contentDescription = null)
