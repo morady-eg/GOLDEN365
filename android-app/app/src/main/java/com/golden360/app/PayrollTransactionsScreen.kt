@@ -68,6 +68,8 @@ internal fun PayrollTransactionsScreen(
     var overtimePlace by remember { mutableStateOf("") }
     var overtimeDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var overtimeDatePickerOpen by remember { mutableStateOf(false) }
+    var transactionDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var transactionDatePickerOpen by remember { mutableStateOf(false) }
     var overtimeTime by remember { mutableStateOf("") }
     var absentDays by remember { mutableStateOf("0") }
     var monthlyTotals by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
@@ -237,6 +239,46 @@ internal fun PayrollTransactionsScreen(
                     }
                 }
             }
+            if (selectedType != TransactionType.OVERTIME) {
+                OutlinedTextField(
+                    value = transactionDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("تاريخ الإجراء (اختياري — الافتراضي اليوم)") },
+                    trailingIcon = {
+                        IconButton(onClick = { transactionDatePickerOpen = true }) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = "اختيار تاريخ الإجراء", tint = SoftGold)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = fieldColors()
+                )
+                if (transactionDatePickerOpen) {
+                    val initialDateMillis = runCatching {
+                        java.time.LocalDate.parse(transactionDate).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                    }.getOrDefault(java.time.LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+                    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+                    DatePickerDialog(
+                        onDismissRequest = { transactionDatePickerOpen = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    transactionDate = java.time.Instant.ofEpochMilli(millis)
+                                        .atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+                                    savedReference = null
+                                }
+                                transactionDatePickerOpen = false
+                            }) { Text("تأكيد", color = SoftGold) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { transactionDatePickerOpen = false }) { Text("إلغاء", color = Muted) }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+            }
             if (selectedType == TransactionType.OVERTIME) {
                 var quantityExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(expanded = quantityExpanded, onExpandedChange = { quantityExpanded = !quantityExpanded }) {
@@ -369,6 +411,7 @@ internal fun PayrollTransactionsScreen(
                     if (employee == null) error = "اختر موظفًا"
                     else if (!monthValid) error = "أدخل الشهر بصيغة صحيحة مثل 2026-10"
                     else if (count == null || count <= 0) error = "العدد يجب أن يكون عددًا صحيحًا أكبر من صفر"
+                    else if (selectedType != TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(transactionDate) }.isFailure) error = "اختر تاريخًا صحيحًا للإجراء"
                     else if (selectedType == TransactionType.OVERTIME && overtimePlace.isBlank()) error = "أدخل مكان الوردية الإضافية"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.LocalDate.parse(overtimeDate) }.isFailure) error = "أدخل تاريخ الوردية بصيغة YYYY-MM-DD"
                     else if (selectedType == TransactionType.OVERTIME && runCatching { java.time.YearMonth.from(java.time.LocalDate.parse(overtimeDate)).toString() }.getOrNull() != month) error = "شهر الحركة يجب أن يطابق شهر تاريخ الوردية"
@@ -386,11 +429,12 @@ internal fun PayrollTransactionsScreen(
                              dao.create(currentEmployee.id, selectedType, month, enteredAmount, count, note,
                                     overtimePlace = if (selectedType == TransactionType.OVERTIME) overtimePlace else "",
                                     overtimeDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else "",
-                                    overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "")
+                                    overtimeTime = if (selectedType == TransactionType.OVERTIME) overtimeTime else "",
+                                    transactionDate = if (selectedType == TransactionType.OVERTIME) overtimeDate else transactionDate)
                             }.onSuccess { reference ->
                                 savedReference = reference
                                 runCatching {
-                                val dateLabel = java.time.LocalDate.now().toString()
+                                val dateLabel = transactionDate
                                 val jobLabel = JobTitle.entries.firstOrNull { it.name == employee.jobTitle }?.arabicLabel ?: employee.jobTitle
                                 whatsappMessage = when (selectedType) {
                                     TransactionType.OVERTIME -> buildString {
@@ -422,6 +466,8 @@ internal fun PayrollTransactionsScreen(
                                 note = ""
                                 overtimePlace = ""
                                 overtimeTime = ""
+                                transactionDate = java.time.LocalDate.now().toString()
+                                overtimeDate = java.time.LocalDate.now().toString()
                                 transactions = dao.getForEmployeeMonth(employee.id, month)
                                 monthlyTotals = TransactionType.entries.associate { type -> type.name to dao.sumForEmployeeMonth(employee.id, month, type.name) }
                                  auditEvents = dao.getAuditEvents(employee.id, month)
