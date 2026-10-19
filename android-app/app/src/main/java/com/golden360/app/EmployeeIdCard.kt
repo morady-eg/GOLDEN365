@@ -87,7 +87,7 @@ internal fun EmployeeIdCardScreen(
             employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uriText ->
                 runCatching { decodeSampledBitmap(context, Uri.parse(uriText), 360, 360) }.getOrNull()
             } ?: runCatching {
-                BitmapFactory.decodeResource(context.resources, R.drawable.golden)
+                BitmapFactory.decodeResource(context.resources, R.drawable.golden360)
             }.getOrNull()
         }
     }.value
