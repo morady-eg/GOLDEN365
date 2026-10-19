@@ -358,7 +358,7 @@ private suspend fun buildReportPayload(
     val type = kind.transactionType()
     if (type != null) {
         val rows = mutableListOf(
-            listOf("اسم الموظف", "كود الموظف", "رقم المرجع", "الشهر", "نوع الحركة", "المبلغ (ج.م)", "الكمية", "ملاحظات", "تاريخ التسجيل", "الحالة", "سبب الإلغاء", "مكان الوردية", "تاريخ الوردية", "الفترة")
+            listOf("اسم الموظف", "كود الموظف", "رقم المرجع", "الشهر", "نوع الحركة", "المبلغ (ج.م)", "الكمية", "ملاحظات", "تاريخ الإجراء", "تاريخ التسجيل", "الحالة", "سبب الإلغاء", "مكان الوردية", "تاريخ الوردية", "الفترة")
         )
         var total = 0L
         var count = 0
@@ -373,7 +373,11 @@ private suspend fun buildReportPayload(
                 rows += listOf(
                     employee.fullName, employee.code, transaction.reference, transaction.monthKey,
                     type.arabicLabel, ReportsCsv.formatPiasters(transaction.amountPiasters),
-                    transaction.quantity.toString(), transaction.note, created,
+                    transaction.quantity.toString(), transaction.note,
+                    transaction.transactionDate.ifBlank {
+                        if (transaction.overtimeDate.isNotBlank()) transaction.overtimeDate
+                        else java.time.Instant.ofEpochMilli(transaction.createdAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                    }, created,
                     if (active) "فعالة" else "ملغاة",
                     transaction.voidReason.orEmpty(), transaction.overtimePlace,
                     transaction.overtimeDate, transaction.overtimeTime
