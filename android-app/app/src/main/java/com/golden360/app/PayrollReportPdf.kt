@@ -235,7 +235,7 @@ internal object PayrollReportPdf {
     }
 
     private fun drawLogo(canvas: Canvas, context: Context, bounds: RectF) {
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.golden) ?: return
+        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.golden360) ?: return
         try {
             val scale = minOf(bounds.width() / bitmap.width, bounds.height() / bitmap.height)
             val logoWidth = bitmap.width * scale
