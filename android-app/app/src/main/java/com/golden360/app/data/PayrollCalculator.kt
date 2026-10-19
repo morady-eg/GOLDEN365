@@ -7,6 +7,15 @@ enum class TransactionType(val referencePrefix: String, val arabicLabel: String)
     OVERTIME("OT", "وردية إضافية")
 }
 
+object TransactionDatePolicy {
+    /** Returns a validated ISO date, defaulting to the supplied local date when no date was chosen. */
+    fun resolve(selectedDate: String?, today: java.time.LocalDate = java.time.LocalDate.now()): String {
+        val candidate = selectedDate?.trim().takeUnless { it.isNullOrEmpty() } ?: return today.toString()
+        return runCatching { java.time.LocalDate.parse(candidate).toString() }
+            .getOrElse { throw IllegalArgumentException("Transaction date must use YYYY-MM-DD", it) }
+    }
+}
+
 object TransactionReferenceFormatter {
     fun format(type: TransactionType, sequence: Long): String {
         require(sequence > 0) { "sequence must be positive" }
