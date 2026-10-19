@@ -162,7 +162,7 @@ private fun Golden360App(dao: EmployeeDao) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.golden1),
+                                painter = painterResource(id = R.drawable.golden360360),
                                 contentDescription = "GOLDEN 360 logo",
                                 modifier = Modifier.size(38.dp),
                                 contentScale = ContentScale.Fit
