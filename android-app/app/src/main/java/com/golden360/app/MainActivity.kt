@@ -162,7 +162,7 @@ private fun Golden360App(dao: EmployeeDao) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.golden360360),
+                                painter = painterResource(id = R.drawable.golden360),
                                 contentDescription = "GOLDEN 360 logo",
                                 modifier = Modifier.size(38.dp),
                                 contentScale = ContentScale.Fit
@@ -204,7 +204,7 @@ private fun Golden360App(dao: EmployeeDao) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.golden1),
+                                painter = painterResource(id = R.drawable.golden360),
                                 contentDescription = "GOLDEN 360 logo",
                                 modifier = Modifier.size(38.dp),
                                 contentScale = ContentScale.Fit
@@ -848,7 +848,7 @@ private fun EmployeeAvatar(photoUri: String?, modifier: Modifier = Modifier) {
         )
     } else {
         Image(
-            painter = painterResource(R.drawable.golden),
+            painter = painterResource(R.drawable.golden360),
             contentDescription = "الصورة الافتراضية للموظف",
             modifier = modifier.clip(CircleShape),
             contentScale = ContentScale.Crop
