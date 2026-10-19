@@ -37,6 +37,7 @@ data class PayrollTransactionEntity(
     @ColumnInfo(defaultValue = "''") val overtimePlace: String = "",
     @ColumnInfo(defaultValue = "''") val overtimeDate: String = "",
     @ColumnInfo(defaultValue = "''") val overtimeTime: String = "",
+    @ColumnInfo(defaultValue = "''") val transactionDate: String = "",
     val createdAtEpochMillis: Long,
     val voidedAtEpochMillis: Long? = null,
     val voidReason: String? = null
@@ -296,11 +297,13 @@ interface PayrollTransactionDao {
         amountPiasters: Long,
         quantity: Int = 1,
         note: String = "",
-        overtimePlace: String = "", overtimeDate: String = "", overtimeTime: String = ""
+        overtimePlace: String = "", overtimeDate: String = "", overtimeTime: String = "",
+        transactionDate: String = java.time.LocalDate.now().toString()
     ): String {
         require(employeeId > 0) { "يجب اختيار موظف صحيح" }
         require(monthKey.matches(Regex("[0-9]{4}-(0[1-9]|1[0-2])"))) { "الشهر يجب أن يكون بصيغة YYYY-MM" }
         require(amountPiasters > 0) { "قيمة الحركة يجب أن تكون أكبر من صفر" }
+        val resolvedTransactionDate = TransactionDatePolicy.resolve(transactionDate)
         require(quantity > 0) { "الكمية يجب أن تكون أكبر من صفر" }
         require(getPayrollSnapshot(employeeId, monthKey) == null) { "لا يمكن إضافة حركة إلى شهر تم اعتماد كشف راتبه" }
         if (type == TransactionType.OVERTIME) {
@@ -321,6 +324,7 @@ interface PayrollTransactionDao {
                 amountPiasters = amountPiasters,
                 quantity = quantity, note = note.trim(), overtimePlace = overtimePlace.trim(),
                 overtimeDate = overtimeDate.trim(), overtimeTime = overtimeTime.trim(),
+                transactionDate = resolvedTransactionDate,
                 createdAtEpochMillis = System.currentTimeMillis()
             )
         )
@@ -340,7 +344,7 @@ interface PayrollTransactionDao {
 
 @Database(
     entities = [PayrollTransactionEntity::class, DailyAbsenceEntity::class, MonthlyAttendanceEntity::class, PayrollSnapshotEntity::class, PayrollReferenceCounter::class, PayrollAuditEventEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class PayrollDatabase : RoomDatabase() {
@@ -384,6 +388,12 @@ abstract class PayrollDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE payroll_transactions ADD COLUMN transactionDate TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var instance: PayrollDatabase? = null
 
         @Synchronized
@@ -399,7 +409,7 @@ abstract class PayrollDatabase : RoomDatabase() {
                     context.applicationContext,
                     PayrollDatabase::class.java,
                     "golden360_payroll.db"
-                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                ).openHelperFactory(SupportFactory(passphrase)).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build().also { instance = it }
             }
         }
