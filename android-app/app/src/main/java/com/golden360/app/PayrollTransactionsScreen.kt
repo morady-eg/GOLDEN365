@@ -625,7 +625,12 @@ internal fun PayrollTransactionsScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(transaction.reference, color = if (transaction.voidedAtEpochMillis != null) Muted else SoftGold, fontWeight = FontWeight.Bold)
                                     Text(TransactionType.entries.firstOrNull { it.name == transaction.type }?.arabicLabel ?: transaction.type, color = Color.White)
-                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • التاريخ: ${transaction.overtimeDate} • الفترة: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
+                                    val effectiveTransactionDate = transaction.transactionDate.ifBlank {
+                                        if (transaction.overtimeDate.isNotBlank()) transaction.overtimeDate
+                                        else java.time.Instant.ofEpochMilli(transaction.createdAtEpochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+                                    }
+                                    Text("تاريخ الإجراء: $effectiveTransactionDate", color = Muted, fontSize = 11.sp)
+                                    if (transaction.type == TransactionType.OVERTIME.name) Text("المكان: ${transaction.overtimePlace} • تاريخ الوردية: ${transaction.overtimeDate} • الفترة: ${transaction.overtimeTime} • العدد: ${transaction.quantity}", color = Muted, fontSize = 11.sp)
                                     if (transaction.note.isNotBlank()) Text(transaction.note, color = Muted, fontSize = 12.sp)
                                     if (transaction.voidedAtEpochMillis != null) {
                                         Text("ملغاة • السبب: ${transaction.voidReason ?: "—"}", color = Color(0xFFFFA39A), fontSize = 11.sp)
