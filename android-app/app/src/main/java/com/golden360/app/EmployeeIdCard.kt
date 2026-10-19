@@ -87,7 +87,7 @@ internal fun EmployeeIdCardScreen(
             employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uriText ->
                 runCatching { decodeSampledBitmap(context, Uri.parse(uriText), 360, 360) }.getOrNull()
             } ?: runCatching {
-                BitmapFactory.decodeResource(context.resources, R.drawable.golden)
+                BitmapFactory.decodeResource(context.resources, R.drawable.golden360)
             }.getOrNull()
         }
     }.value
@@ -376,7 +376,7 @@ private fun drawEmployeeCard(context: Context, canvas: Canvas, width: Float, hei
     val photo = employee.profilePhotoUri?.takeIf { it.isNotBlank() }?.let { uri ->
         runCatching { decodeSampledBitmap(context, Uri.parse(uri), 640, 640) }.getOrNull()
     } ?: runCatching {
-        BitmapFactory.decodeResource(context.resources, R.drawable.golden)
+        BitmapFactory.decodeResource(context.resources, R.drawable.golden360)
     }.getOrNull()
     if (photo != null) {
         canvas.save()

@@ -3,6 +3,7 @@ package com.golden360.app
 import android.content.Intent
 import android.net.Uri
 import android.content.Context
+import androidx.core.content.FileProvider
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.text.Layout
@@ -43,7 +44,10 @@ import com.golden360.app.data.AttendancePolicy
 import com.golden360.app.data.PhoneNumberFormatter
 import com.golden360.app.data.PayrollSummaryCalculator
 import com.golden360.app.data.PayrollResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.YearMonth
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +66,7 @@ internal fun PayrollTransactionsScreen(
     var selectedType by remember(initialType) { mutableStateOf(initialType) }
     var typeExpanded by remember { mutableStateOf(false) }
     var month by remember { mutableStateOf(initialMonth) }
+    var monthPickerOpen by remember { mutableStateOf(false) }
     var amount by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("1") }
     var note by remember { mutableStateOf("") }
@@ -82,7 +87,6 @@ internal fun PayrollTransactionsScreen(
     var referenceEmployee by remember { mutableStateOf<EmployeeEntity?>(null) }
     var referenceSearchMessage by remember { mutableStateOf<String?>(null) }
     var searchingReference by remember { mutableStateOf(false) }
-    var sharePayrollPdfAfterSave by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var whatsappMessage by remember { mutableStateOf<String?>(null) }
@@ -96,9 +100,7 @@ internal fun PayrollTransactionsScreen(
         val snapshot = pendingPayrollSnapshot
         if (uri != null && snapshot != null) runCatching {
             writePayrollSnapshotPdf(context, uri, snapshot)
-            if (sharePayrollPdfAfterSave) sharePdfFile(context, uri, "كشف راتب ${snapshot.employeeName}")
         }.onFailure { error = "تعذر إنشاء/مشاركة ملف PDF: ${it.message ?: "خطأ غير معروف"}" }
-        sharePayrollPdfAfterSave = false
         pendingPayrollSnapshot = null
     }
 
@@ -226,7 +228,45 @@ internal fun PayrollTransactionsScreen(
                     }
                 }
             }
-            GoldenField("شهر الحركة (YYYY-MM)", month, { month = it; savedReference = null }, KeyboardType.Ascii)
+            OutlinedTextField(
+                value = month,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("شهر الحركة") },
+                trailingIcon = {
+                    IconButton(onClick = { monthPickerOpen = true }) {
+                        Icon(Icons.Default.ReceiptLong, contentDescription = "اختيار شهر الحركة", tint = SoftGold)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = fieldColors()
+            )
+            if (monthPickerOpen) {
+                val initialMonthMillis = runCatching {
+                    YearMonth.parse(month).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                }.getOrDefault(YearMonth.now().atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+                val monthPickerState = rememberDatePickerState(initialSelectedDateMillis = initialMonthMillis)
+                DatePickerDialog(
+                    onDismissRequest = { monthPickerOpen = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            monthPickerState.selectedDateMillis?.let { millis ->
+                                month = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC)
+                                    .toLocalDate().let { YearMonth.from(it).toString() }
+                                savedReference = null
+                            }
+                            monthPickerOpen = false
+                        }) { Text("اختيار الشهر", color = SoftGold) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { monthPickerOpen = false }) { Text("إلغاء", color = Muted) }
+                    }
+                ) {
+                    DatePicker(state = monthPickerState, title = { Text("اختر أي يوم من الشهر المطلوب") })
+                }
+            }
             Surface(
                 color = Panel, shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, Color(0xFF4A3D24))
@@ -522,8 +562,25 @@ internal fun PayrollTransactionsScreen(
                                     netSalaryPiasters = payrollSummary.netSalaryPiasters,
                                     approvedAtEpochMillis = System.currentTimeMillis()
                                 )
-                                sharePayrollPdfAfterSave = true
-                                payrollPdfLauncher.launch("كشف_راتب_${employee.code}_${month}.pdf")
+                                val snapshot = pendingPayrollSnapshot!!
+                                scope.launch {
+                                    val sharedUri = runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            val directory = File(context.cacheDir, "shared_reports").apply { mkdirs() }
+                                            directory.listFiles()?.filter { it.isFile && System.currentTimeMillis() - it.lastModified() > 24L * 60 * 60 * 1000 }
+                                                ?.forEach { it.delete() }
+                                            val safeCode = employee.code.replace(Regex("[^A-Za-z0-9_-]"), "_")
+                                            val pdfFile = File(directory, "GOLDEN360_Payroll_${safeCode}_${month}_${System.currentTimeMillis()}.pdf")
+                                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdfFile)
+                                            writePayrollSnapshotPdf(context, uri, snapshot)
+                                            uri
+                                        }
+                                    }
+                                    sharedUri.onSuccess { uri ->
+                                        runCatching { sharePdfFile(context, uri, "كشف راتب ${snapshot.employeeName}") }
+                                            .onFailure { error = "تم تجهيز PDF لكن تعذرت المشاركة: ${it.message ?: "خطأ غير معروف"}" }
+                                    }.onFailure { error = "تعذر تجهيز كشف الراتب للمشاركة: ${it.message ?: "خطأ غير معروف"}" }
+                                }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("مشاركة كشف الراتب PDF") }

@@ -208,4 +208,31 @@ class AttendancePolicyTest {
             "2026-10-10|"
         ))
     }
+
+    @Test fun legacyAndDatedAbsencesCannotExceedTheThirtyDayPayrollBasis() {
+        val month = YearMonth.of(2026, 10)
+        val dated = (1..31).map { LocalDate.of(2026, 10, it) }.toSet()
+        assertEquals(
+            30,
+            AttendancePolicy.effectiveAbsentDaysForMonth(
+                month = month,
+                weeklyOffDays = emptySet(),
+                absentDates = dated,
+                legacyAbsentDays = 8
+            )
+        )
+    }
+
+    @Test fun legacyAbsenceDaysArePreservedWhenNoDatedAbsencesExist() {
+        assertEquals(
+            12,
+            AttendancePolicy.effectiveAbsentDaysForMonth(
+                month = YearMonth.of(2026, 10),
+                weeklyOffDays = emptySet(),
+                absentDates = emptySet(),
+                legacyAbsentDays = 12
+            )
+        )
+    }
+
 }

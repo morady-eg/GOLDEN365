@@ -145,9 +145,14 @@ object AttendancePolicy {
         suspensionPeriods: String = ""
     ): Int {
         require(legacyAbsentDays in 0..30) { "Legacy absence days must be between 0 and 30" }
-        return Math.addExact(
-            legacyAbsentDays,
-            absentDaysForMonth(month, weeklyOffDays, absentDates, hireDate, workStatus, statusEffectiveDate, suspensionPeriods)
+        // Older versions stored undated monthly absences. When both legacy and dated
+        // records exist, their historical overlap cannot be reconstructed reliably.
+        // Payroll uses a 30-day month, so never let legacy data make salary calculation
+        // fail or deduct more than a full month's base salary.
+        val combined = Math.addExact(
+            legacyAbsentDays.toLong(),
+            absentDaysForMonth(month, weeklyOffDays, absentDates, hireDate, workStatus, statusEffectiveDate, suspensionPeriods).toLong()
         )
+        return combined.coerceAtMost(30L).toInt()
     }
 }
