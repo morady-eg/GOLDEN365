@@ -334,7 +334,7 @@ interface PayrollTransactionDao {
                 employeeId = employeeId,
                 monthKey = monthKey,
                 transactionReference = reference,
-                afterValue = "type=${type.name};amountPiasters=${amountPiasters};quantity=${quantity}",
+                afterValue = "type=${type.name};amountPiasters=${amountPiasters};quantity=${quantity};transactionDate=${resolvedTransactionDate}",
                 createdAtEpochMillis = System.currentTimeMillis()
             )
         )
